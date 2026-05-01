@@ -1,0 +1,6 @@
+CREATE TABLE IF NOT EXISTS panorama_migration_history (
+  id              BIGINT AUTO_INCREMENT PRIMARY KEY,
+  filename        VARCHAR(200) NOT NULL UNIQUE,
+  applied_at      TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  checksum_sha1   CHAR(40) NOT NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
