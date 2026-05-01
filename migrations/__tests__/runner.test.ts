@@ -28,12 +28,13 @@ describe('migrations runner', () => {
   beforeEach(async () => { conn = await createConnection(); await reset(conn); });
   afterEach(async () => { await reset(conn); await conn.end(); });
 
-  it('applies 999_migration_history.sql first and tracks subsequent files', async () => {
+  it('applies 000_migration_history.sql first and tracks subsequent files', async () => {
     const result = await applyMigrations({ conn, sqlDir: 'sql' });
-    expect(result.applied).toContain('999_migration_history.sql');
+    expect(result.applied).toContain('000_migration_history.sql');
+    expect(result.applied[0]).toBe('000_migration_history.sql');
 
     const applied = await listApplied(conn);
-    expect(applied).toEqual(expect.arrayContaining(['999_migration_history.sql']));
+    expect(applied).toEqual(expect.arrayContaining(['000_migration_history.sql']));
   });
 
   it('is idempotent — second apply is a no-op', async () => {
@@ -51,6 +52,7 @@ describe('migrations runner', () => {
 
   it('lists pending files when nothing is applied yet', async () => {
     const pending = await listPending({ conn, sqlDir: 'sql' });
-    expect(pending).toContain('999_migration_history.sql');
+    expect(pending).toContain('000_migration_history.sql');
+    expect(pending[0]).toBe('000_migration_history.sql');
   });
 });

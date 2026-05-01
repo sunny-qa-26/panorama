@@ -34,7 +34,9 @@ export async function applyMigrations(opts: ApplyOpts): Promise<{ applied: strin
     const sql = await readFile(path, 'utf8');
     const checksum = createHash('sha1').update(sql).digest('hex');
     await opts.conn.query(sql);
-    // history table only exists *after* 999_*.sql ran the first time, so skip recording it on first pass.
+    // First-run: the history table doesn't exist until the bootstrap migration
+    // (000_migration_history.sql) executes. The post-apply existence check skips
+    // recording until then.
     const historyExists = await tableExists(opts.conn, 'panorama_migration_history');
     if (historyExists) {
       await opts.conn.query(
