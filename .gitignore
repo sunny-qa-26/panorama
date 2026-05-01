@@ -16,6 +16,7 @@ out/
 dist/
 build/
 coverage/
+*.tsbuildinfo
 .env
 .env.local
 .env.*.local
