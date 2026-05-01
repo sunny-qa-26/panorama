@@ -86,20 +86,55 @@ panorama/
 | 5 个上游仓库 deploy key | DevOps | Phase 1 W4 |
 | OIDC SSO 配置 | IT | Phase 3 W12 |
 
-## 开发起步
+## 开发起步 (Phase 1)
+
+### 一次性 setup
 
 ```bash
-# 看最新 UI mockup
-open design/mockup.html
+# 1. 安装依赖
+cd panorama
+pnpm install
 
-# 看历史迭代
-open design/iterations/v1.html  # 初版
-open design/iterations/v8.html  # 当前版
+# 2. 配置 env
+cp .env.example .env
+# 填入 MYSQL_PASSWORD（向 sunny.q@lista.org 索取）+ REPOS_PATH（默认 /Users/quansong/Documents/code）
 
-# 看设计文档
-open docs/01-PRD.md
-open docs/02-tech-design.md
+# 3. 创建数据库 schema（首次或拉了新 migration 后）
+pnpm migrate
+# 期望: "Applied: 000_migration_history.sql, 001_..., 002_..., ..."
 ```
+
+### 日常开发
+
+```bash
+# 拉最新业务知识 + 代码后，重建数据
+pnpm rebuild
+
+# 启动 webapp（开发模式，热重载）
+pnpm dev
+# → http://localhost:3000
+
+# 跑测试（所有包）
+pnpm test
+```
+
+### Docker 模式（贴近生产）
+
+```bash
+docker compose up webapp -d                              # webapp 起在 :3000
+docker compose --profile build run --rm ingestion        # 一次性 ingestion
+docker compose down
+```
+
+### Phase 1 验收清单
+
+- [ ] `pnpm migrate` 应用 6 个 SQL 迁移（000 + 001-005）无错
+- [ ] `pnpm rebuild` 成功结束，build_meta status = success
+- [ ] 访问 `/` 看到 9+ 个业务域树
+- [ ] 点击 Moolah → Emission，看到 frontmatter concepts、cron 列表、完整 markdown + mermaid 渲染
+- [ ] 顶栏 SyncIndicator 显示最近一次成功 build 的相对时间
+- [ ] `panorama_broken_ref` 表数量已知（作为 lista-knowledge 维护 backlog 的起点）
+- [ ] 设置 `BASIC_AUTH_USER` + `BASIC_AUTH_PASS` 后 `/` 返回 401，`/api/health` 仍返回 200
 
 ## License
 
