@@ -15,6 +15,7 @@ node_modules/
 out/
 dist/
 build/
+!webapp/app/api/build/
 coverage/
 *.tsbuildinfo
 .env
