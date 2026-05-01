@@ -1,0 +1,65 @@
+{
+  "feature_name": "panorama",
+  "display_name": "业务全景图平台 (Panorama)",
+  "phase": "phase-0-design",
+  "status": "ready-for-review",
+  "version": "0.2",
+  "created_at": "2026-05-01",
+  "updated_at": "2026-05-01",
+  "owner": "sunny",
+  "description": "Lista DAO 业务全景图平台 - 树形导航 + React Flow 流程图 + 6 类节点（UI/API/Cron/Contract/DB/Redis）+ 抽屉式详情 + 源码浏览。Phase 0 已交付 PRD / 技术设计 / 8 版 UI mockup。",
+  "deliverables": {
+    "phase_0": [
+      "docs/01-PRD.md (v0.2)",
+      "docs/02-tech-design.md (v0.2)",
+      "design/mockup.html (v8 - latest)",
+      "design/iterations/v1.html ~ v8.html"
+    ]
+  },
+  "key_decisions": {
+    "storage": "MySQL (lista-qa 实例) + staging 表 + RENAME swap (避免 TRUNCATE 不可回滚问题)",
+    "visualization": "左树 + 中 React Flow 流程图 (6 lane auto-layout) + 右抽屉详情 (slide-in overlay)",
+    "node_types": "6 类 - UI / API / Cron / Contract / DB / Redis",
+    "flow_chart_lib": "React Flow + dagre (auto-layout)",
+    "knowledge_mermaid": "保留作为业务意图参考 (折叠面板)，不作为主流程图",
+    "trigger": "K8s CronJob 每日 02:00 + UI 一键重建 (不做跨仓库 GitHub Actions)",
+    "brand": "Lista 紫 #8378FF (主交互) + Lista 黄橙渐变 (logo / 小品牌) + Inter sans + JetBrains Mono",
+    "team": "单人 + AI agent (Sunny + Claude Code)",
+    "coexistence": "与 ask-knowledge / biz-doc 互补，仅只读消费 lista-knowledge"
+  },
+  "phases": [
+    { "id": "phase-0", "name": "设计文档", "duration_weeks": 1, "status": "completed", "deliverables": ["PRD v0.2", "Tech Design v0.2", "UI Mockup v8"] },
+    { "id": "phase-1", "name": "地基", "duration_weeks": 4, "status": "pending", "deliverables": ["MySQL schema migration", "knowledge ingestor", "cron ingestor", "树 + L2 只读"] },
+    { "id": "phase-2", "name": "完整数据 + 流程图 + 搜索", "duration_weeks": 4, "status": "pending", "deliverables": ["api/contract/entity/frontend/redis ingestor", "React Flow 业务流程图", "Cmd+K (6 表 UNION)", "L3 抽屉详情", "反向关联"] },
+    { "id": "phase-3", "name": "源码 + 上线", "duration_weeks": 4, "status": "pending", "deliverables": ["Monaco 代码浏览器", "源码脱敏 (4 层防护)", "K8s 部署", "SSO"] }
+  ],
+  "next_steps": [
+    "评审 PRD v0.2 与 Tech Design v0.2",
+    "确认 lista-qa MySQL DDL 权限 (R8)",
+    "Phase 1 W1 启动: schema migration + knowledge/cron ingestor"
+  ],
+  "open_questions": [
+    "DB 账号 bijieprd 是否有 lista-qa 库 DDL 权限？",
+    "5 个上游仓库 git checkout 同步方案选哪个 (git-sync sidecar / CI 镜像 / 卷挂载)？",
+    "SSO 接公司 OIDC 时机：Phase 1 / Phase 3 / 永远 basic auth？",
+    "是否需要给业务方提供简化视图（隐藏技术细节）？",
+    "Redis ingestor 是否要求研发在 RedisService 加 JSDoc @redis-key 注解提升精度？"
+  ],
+  "risk_register_count": 12,
+  "iterations": {
+    "ui_mockup_versions": 8,
+    "doc_versions": "PRD v0.1 → v0.2 / Tech Design v0.1 → v0.2",
+    "v0_2_changes": [
+      "+ Redis 节点 (panorama_redis_key + cron_redis_op + api_redis_op tables)",
+      "+ React Flow 替代 mermaid 作业务流程图 (mermaid 仅渲染知识库手写图)",
+      "+ 抽屉式节点详情 (vaul / radix dialog) 替代右常驻面板",
+      "+ Lista 品牌色规范 (紫主交互 + 黄橙品牌 + 6 类型色)",
+      "+ UI 约定规范 (§7.5 节点尺寸 / lane 布局 / 边类型 / 抽屉行为)",
+      "+ R9-R12 风险 (Redis 启发式 / 流程图节点上限 / TRUNCATE 不可回滚 / 私钥脱敏误伤)",
+      "+ staging 表 + RENAME swap (替代 TRUNCATE 事务)",
+      "+ panorama_api_contract_call / panorama_api_cron_call / api_redis_op 关联表 (覆盖 callCronApi 模式)",
+      "+ FULLTEXT 索引 6 表 UNION (含 Redis)",
+      "+ 私钥脱敏正则收紧 (避免误伤 tx hash / merkle root)"
+    ]
+  }
+}

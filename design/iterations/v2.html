@@ -1,0 +1,1558 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<title>Panorama v2 — On-chain Engineering Console</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=JetBrains+Mono:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #09090B;
+    --bg-panel: #0F0F12;
+    --bg-soft: #15151A;
+    --border: #26262B;
+    --border-hover: #3D3D44;
+    --text: #E5E5E7;
+    --text-muted: #71717A;
+    --text-faint: #3F3F46;
+    --yellow: #FFC93C;
+    --yellow-soft: rgba(255, 201, 60, 0.08);
+    --green: #4ADE80;
+    --red: #F87171;
+
+    /* Type colors — desaturated, not rainbow */
+    --t-ui: #5B8FA8;
+    --t-api: #6FA181;
+    --t-cron: #C19853;
+    --t-contract: #C77272;
+    --t-db: #8E7AB5;
+    --t-redis: #B57AA0;
+  }
+
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; }
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'JetBrains Mono', ui-monospace, monospace;
+    font-size: 12px;
+    line-height: 1.5;
+    -webkit-font-smoothing: antialiased;
+    overflow: hidden;
+    height: 100vh;
+    letter-spacing: -0.005em;
+  }
+
+  /* Global SVG grain overlay */
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='400' height='400'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='3' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 1, 0 0 0 0 1, 0 0 0 0 1, 0 0 0 0.4 0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+    opacity: 0.025;
+    pointer-events: none;
+    z-index: 1000;
+    mix-blend-mode: overlay;
+  }
+
+  .display {
+    font-family: 'Instrument Serif', serif;
+    font-style: italic;
+    font-weight: 400;
+    letter-spacing: -0.01em;
+  }
+
+  /* ============= TOP BAR ============= */
+  .topbar {
+    height: 56px;
+    border-bottom: 1px solid var(--border);
+    display: grid;
+    grid-template-columns: 280px 1fr auto;
+    align-items: stretch;
+    background: var(--bg-panel);
+    position: relative;
+  }
+
+  .logo {
+    padding: 0 20px;
+    border-right: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    gap: 14px;
+  }
+
+  .logo-mark {
+    width: 30px; height: 30px;
+    border: 1.5px solid var(--yellow);
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-family: 'Instrument Serif', serif;
+    font-style: italic;
+    font-size: 18px;
+    color: var(--yellow);
+    position: relative;
+  }
+  .logo-mark::after {
+    content: '';
+    position: absolute;
+    inset: -4px;
+    border: 1px dashed var(--yellow);
+    border-radius: 50%;
+    opacity: 0.3;
+    animation: spin 30s linear infinite;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  .logo-text { display: flex; flex-direction: column; line-height: 1.1; }
+  .logo-text .title {
+    font-size: 14px;
+    letter-spacing: 0.02em;
+    font-weight: 500;
+    color: var(--text);
+  }
+  .logo-text .subtitle {
+    font-size: 9px;
+    color: var(--text-faint);
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+    margin-top: 2px;
+  }
+
+  /* Ambient ticker */
+  .ticker {
+    display: flex;
+    align-items: center;
+    gap: 28px;
+    padding: 0 24px;
+    color: var(--text-muted);
+    font-size: 11px;
+    overflow: hidden;
+    white-space: nowrap;
+  }
+  .ticker-cell { display: flex; align-items: center; gap: 6px; }
+  .ticker-label {
+    color: var(--text-faint);
+    font-size: 9px;
+    letter-spacing: 0.15em;
+    text-transform: uppercase;
+  }
+  .ticker-val { color: var(--text); font-weight: 500; }
+  .ticker-val.yellow { color: var(--yellow); }
+
+  .live-dot {
+    width: 6px; height: 6px;
+    border-radius: 50%;
+    background: var(--green);
+    box-shadow: 0 0 8px var(--green);
+    animation: pulse 2s infinite;
+  }
+  @keyframes pulse {
+    0%, 100% { opacity: 1; transform: scale(1); }
+    50% { opacity: 0.4; transform: scale(0.8); }
+  }
+
+  .topbar-right {
+    display: flex;
+    align-items: center;
+    padding: 0 16px;
+    gap: 12px;
+    border-left: 1px solid var(--border);
+  }
+
+  .search-box {
+    background: var(--bg);
+    border: 1px solid var(--border);
+    padding: 7px 12px 7px 32px;
+    width: 280px;
+    font-size: 11px;
+    color: var(--text-muted);
+    font-family: inherit;
+    position: relative;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    cursor: pointer;
+  }
+  .search-box:hover { border-color: var(--border-hover); color: var(--text); }
+  .search-box::before {
+    content: '';
+    position: absolute;
+    left: 12px; top: 50%;
+    width: 12px; height: 12px;
+    transform: translateY(-50%);
+    background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%2371717A' stroke-width='2'%3E%3Ccircle cx='11' cy='11' r='8'/%3E%3Cpath d='m21 21-4.3-4.3'/%3E%3C/svg%3E") no-repeat;
+  }
+  .search-box .kbd {
+    margin-left: auto;
+    font-size: 9px;
+    color: var(--text-faint);
+    border: 1px solid var(--border);
+    padding: 1px 6px;
+    border-radius: 2px;
+    background: var(--bg-soft);
+  }
+
+  .icon-btn {
+    width: 32px; height: 32px;
+    border: 1px solid var(--border);
+    background: transparent;
+    color: var(--text-muted);
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all .15s;
+  }
+  .icon-btn:hover { border-color: var(--yellow); color: var(--yellow); }
+
+  /* ============= LAYOUT ============= */
+  .main {
+    display: grid;
+    grid-template-columns: 280px 1fr;
+    height: calc(100vh - 56px);
+  }
+
+  .sidebar {
+    border-right: 1px solid var(--border);
+    background: var(--bg-panel);
+    overflow-y: auto;
+    scrollbar-width: thin;
+    scrollbar-color: var(--border) transparent;
+  }
+  .sidebar::-webkit-scrollbar { width: 4px; }
+  .sidebar::-webkit-scrollbar-thumb { background: var(--border); }
+
+  .sidebar-section-label {
+    padding: 14px 20px 8px;
+    color: var(--text-faint);
+    font-size: 9px;
+    letter-spacing: 0.25em;
+    text-transform: uppercase;
+    font-weight: 500;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+  .sidebar-section-label::after {
+    content: '';
+    flex: 1;
+    height: 1px;
+    background: var(--border);
+    margin-left: 12px;
+  }
+
+  .tree { font-size: 12px; }
+  .tree-item {
+    padding: 5px 20px 5px 16px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    cursor: pointer;
+    color: var(--text);
+    user-select: none;
+    border-left: 2px solid transparent;
+    position: relative;
+  }
+  .tree-item:hover { background: var(--bg-soft); }
+  .tree-item.active {
+    background: var(--yellow-soft);
+    border-left-color: var(--yellow);
+    color: var(--yellow);
+  }
+  .tree-item.active .count { color: var(--yellow); }
+  .tree-arrow { color: var(--text-faint); font-size: 8px; width: 8px; }
+  .tree-icon {
+    color: var(--text-muted);
+    font-size: 10px;
+    width: 14px;
+  }
+  .tree-name { flex: 1; }
+  .count { color: var(--text-faint); font-size: 10px; }
+
+  .tree-leaf {
+    padding-left: 50px;
+    font-size: 11px;
+    color: var(--text-muted);
+  }
+  .tree-leaf:hover { color: var(--text); }
+  .tree-leaf.active { color: var(--yellow); }
+
+  /* Type tag in tree */
+  .ttag {
+    font-size: 8px;
+    font-weight: 700;
+    letter-spacing: 0.15em;
+    padding: 1px 4px;
+    border: 1px solid currentColor;
+    color: var(--t-cron);
+    border-radius: 2px;
+    line-height: 1;
+  }
+  .ttag.ui { color: var(--t-ui); }
+  .ttag.api { color: var(--t-api); }
+  .ttag.cron { color: var(--t-cron); }
+  .ttag.con { color: var(--t-contract); }
+  .ttag.db { color: var(--t-db); }
+  .ttag.rds { color: var(--t-redis); }
+
+  /* ============= CONTENT ============= */
+  .content {
+    overflow-y: auto;
+    padding: 32px 40px 40px;
+    background:
+      radial-gradient(ellipse 800px 400px at 0% 0%, rgba(255, 201, 60, 0.025) 0%, transparent 60%),
+      var(--bg);
+    position: relative;
+  }
+
+  /* Breadcrumb */
+  .crumb {
+    font-size: 10px;
+    color: var(--text-muted);
+    letter-spacing: 0.05em;
+    margin-bottom: 24px;
+    display: flex;
+    gap: 8px;
+    align-items: center;
+  }
+  .crumb-sep { color: var(--text-faint); }
+  .crumb-current { color: var(--text); }
+
+  /* Hero */
+  .hero { margin-bottom: 40px; position: relative; }
+  .hero-meta {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 16px;
+    font-size: 10px;
+    letter-spacing: 0.15em;
+    text-transform: uppercase;
+    color: var(--text-faint);
+  }
+  .hero-meta .verified { color: var(--green); }
+  .hero-meta .verified::before {
+    content: '';
+    display: inline-block;
+    width: 4px; height: 4px;
+    border-radius: 50%;
+    background: currentColor;
+    margin-right: 4px;
+    vertical-align: middle;
+  }
+
+  .hero h1 {
+    font-family: 'Instrument Serif', serif;
+    font-style: italic;
+    font-weight: 400;
+    font-size: 64px;
+    letter-spacing: -0.02em;
+    line-height: 1;
+    margin: 0 0 20px;
+    color: var(--text);
+  }
+  .hero h1 .em {
+    color: var(--yellow);
+    font-style: italic;
+  }
+  .hero h1 .num {
+    font-family: 'JetBrains Mono', monospace;
+    font-style: normal;
+    font-size: 0.4em;
+    color: var(--text-muted);
+    vertical-align: top;
+    margin-left: 8px;
+    letter-spacing: 0.05em;
+  }
+
+  .hero-desc {
+    max-width: 640px;
+    color: var(--text-muted);
+    font-size: 13px;
+    line-height: 1.7;
+  }
+
+  .hero-tags { display: flex; gap: 6px; margin-top: 18px; flex-wrap: wrap; }
+  .htag {
+    border: 1px solid var(--border);
+    padding: 3px 10px;
+    font-size: 10px;
+    color: var(--text-muted);
+    letter-spacing: 0.05em;
+  }
+  .htag::before { content: '#'; color: var(--text-faint); margin-right: 2px; }
+
+  /* ============= FLOW CHART ============= */
+  .flow-section-label {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    margin-bottom: 16px;
+  }
+  .flow-section-label .label {
+    font-size: 10px;
+    letter-spacing: 0.25em;
+    text-transform: uppercase;
+    color: var(--text-faint);
+  }
+  .flow-section-label .label .num { color: var(--yellow); margin-right: 4px; }
+  .flow-section-label .divider {
+    flex: 1;
+    height: 1px;
+    background: var(--border);
+  }
+  .flow-section-label .controls { display: flex; gap: 4px; }
+  .ctrl-btn {
+    border: 1px solid var(--border);
+    background: transparent;
+    color: var(--text-muted);
+    font-family: inherit;
+    font-size: 10px;
+    padding: 4px 10px;
+    cursor: pointer;
+    letter-spacing: 0.05em;
+  }
+  .ctrl-btn:hover { border-color: var(--yellow); color: var(--yellow); }
+  .ctrl-btn.active { border-color: var(--yellow); color: var(--yellow); background: var(--yellow-soft); }
+
+  .flow-frame {
+    position: relative;
+    margin-bottom: 32px;
+  }
+
+  /* Corner brackets — CAD blueprint feel */
+  .corner {
+    position: absolute;
+    width: 14px;
+    height: 14px;
+    border: 1.5px solid var(--yellow);
+    z-index: 5;
+  }
+  .corner-tl { top: -1px; left: -1px; border-right: none; border-bottom: none; }
+  .corner-tr { top: -1px; right: -1px; border-left: none; border-bottom: none; }
+  .corner-bl { bottom: -1px; left: -1px; border-right: none; border-top: none; }
+  .corner-br { bottom: -1px; right: -1px; border-left: none; border-top: none; }
+
+  .flow-canvas {
+    background:
+      linear-gradient(rgba(255,255,255,0.012) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(255,255,255,0.012) 1px, transparent 1px),
+      var(--bg-panel);
+    background-size: 24px 24px;
+    background-position: -1px -1px;
+    border: 1px solid var(--border);
+    height: 600px;
+    position: relative;
+    overflow: hidden;
+  }
+
+  /* Coordinate marker (top-left of canvas) */
+  .coord {
+    position: absolute;
+    top: 8px;
+    left: 12px;
+    font-size: 9px;
+    color: var(--text-faint);
+    letter-spacing: 0.1em;
+    z-index: 10;
+  }
+
+  /* Lane markers */
+  .lane {
+    position: absolute;
+    right: 16px;
+    color: var(--text-faint);
+    font-size: 9px;
+    letter-spacing: 0.3em;
+    text-transform: uppercase;
+    font-weight: 600;
+    z-index: 1;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .lane-line {
+    width: 24px;
+    height: 1px;
+    background: currentColor;
+    opacity: 0.5;
+  }
+
+  /* Nodes */
+  .node {
+    position: absolute;
+    background: var(--bg-soft);
+    border: 1px solid var(--border);
+    cursor: pointer;
+    transition: all .15s ease;
+    z-index: 10;
+  }
+
+  .node:hover {
+    border-color: var(--border-hover);
+    transform: translateY(-1px);
+    box-shadow: 0 6px 16px rgba(0, 0, 0, 0.5);
+    z-index: 11;
+  }
+
+  .node-header {
+    padding: 4px 9px;
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 10px;
+    color: var(--text-muted);
+    background: rgba(255,255,255,0.015);
+    height: 22px;
+  }
+
+  .node-type-tag {
+    font-size: 8px;
+    font-weight: 700;
+    letter-spacing: 0.15em;
+    color: var(--text-faint);
+    line-height: 1;
+  }
+  .node-meta { font-size: 9px; color: var(--text-faint); margin-left: auto; letter-spacing: 0.05em; }
+
+  .node-body {
+    padding: 8px 10px 9px;
+  }
+  .node-name {
+    font-size: 12px;
+    color: var(--text);
+    margin-bottom: 2px;
+    font-weight: 400;
+  }
+  .node-sub {
+    font-size: 10px;
+    color: var(--text-faint);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  /* Type-specific accent (left bar) */
+  .node[data-type] { border-left-width: 2px; }
+  .node[data-type='ui'] { border-left-color: var(--t-ui); }
+  .node[data-type='ui'] .node-type-tag { color: var(--t-ui); }
+  .node[data-type='api'] { border-left-color: var(--t-api); }
+  .node[data-type='api'] .node-type-tag { color: var(--t-api); }
+  .node[data-type='cron'] { border-left-color: var(--t-cron); }
+  .node[data-type='cron'] .node-type-tag { color: var(--t-cron); }
+  .node[data-type='contract'] { border-left-color: var(--t-contract); }
+  .node[data-type='contract'] .node-type-tag { color: var(--t-contract); }
+  .node[data-type='db'] { border-left-color: var(--t-db); }
+  .node[data-type='db'] .node-type-tag { color: var(--t-db); }
+  .node[data-type='redis'] { border-left-color: var(--t-redis); }
+  .node[data-type='redis'] .node-type-tag { color: var(--t-redis); }
+
+  /* Selected — Lista yellow */
+  .node.selected {
+    border-color: var(--yellow);
+    background: rgba(255, 201, 60, 0.04);
+    box-shadow:
+      0 0 0 1px var(--yellow),
+      0 0 32px -4px rgba(255, 201, 60, 0.4);
+  }
+  .node.selected .node-header { border-bottom-color: rgba(255, 201, 60, 0.3); background: rgba(255, 201, 60, 0.08); }
+  .node.selected .node-name { color: var(--yellow); }
+  .node.selected .node-type-tag { color: var(--yellow); }
+  .node.selected::before {
+    content: '◆';
+    position: absolute;
+    top: -7px; left: -7px;
+    color: var(--yellow);
+    font-size: 11px;
+    background: var(--bg);
+    width: 14px; height: 14px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  /* Contract node icons */
+  .contract-icons {
+    display: flex;
+    gap: 2px;
+    margin-left: auto;
+  }
+  .contract-icons a {
+    width: 16px; height: 16px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--text-faint);
+    text-decoration: none;
+    cursor: pointer;
+    font-size: 9px;
+  }
+  .contract-icons a:hover { color: var(--yellow); }
+
+  /* Edge labels */
+  .edge-label {
+    position: absolute;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    padding: 2px 6px;
+    font-size: 9px;
+    color: var(--text-muted);
+    letter-spacing: 0.05em;
+    z-index: 9;
+    pointer-events: none;
+  }
+  .edge-label.highlight {
+    border-color: var(--yellow);
+    color: var(--yellow);
+    background: var(--bg);
+  }
+  .edge-label.italic { font-style: italic; }
+
+  /* Bottom bar inside flow */
+  .flow-status {
+    position: absolute;
+    bottom: 0; left: 0; right: 0;
+    height: 28px;
+    border-top: 1px solid var(--border);
+    background: var(--bg);
+    display: flex;
+    align-items: center;
+    padding: 0 16px;
+    gap: 24px;
+    font-size: 9px;
+    color: var(--text-faint);
+    letter-spacing: 0.1em;
+    z-index: 15;
+  }
+  .flow-status .legend-item {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+  .flow-status .swatch {
+    width: 10px; height: 2px;
+  }
+  .flow-status .right { margin-left: auto; }
+
+  /* Toolbar */
+  .flow-tools {
+    position: absolute;
+    top: 12px;
+    right: 12px;
+    z-index: 20;
+    display: flex;
+    flex-direction: column;
+    border: 1px solid var(--border);
+    background: var(--bg);
+  }
+  .flow-tools button {
+    width: 28px; height: 28px;
+    background: transparent;
+    border: none;
+    border-bottom: 1px solid var(--border);
+    color: var(--text-muted);
+    cursor: pointer;
+    font-family: inherit;
+    font-size: 11px;
+  }
+  .flow-tools button:last-child { border-bottom: none; }
+  .flow-tools button:hover { color: var(--yellow); background: var(--yellow-soft); }
+
+  /* Diagonal stripes (legend separator) */
+  .stripe-pattern {
+    background-image: repeating-linear-gradient(
+      45deg,
+      transparent,
+      transparent 4px,
+      var(--border) 4px,
+      var(--border) 5px
+    );
+  }
+
+  /* ============= DRAWER ============= */
+  .drawer {
+    position: absolute;
+    top: 0; right: 0; bottom: 0;
+    width: 460px;
+    background: var(--bg-panel);
+    border-left: 1px solid var(--yellow);
+    z-index: 50;
+    display: flex;
+    flex-direction: column;
+    box-shadow: -16px 0 48px -8px rgba(0, 0, 0, 0.7);
+  }
+
+  .drawer-corner {
+    position: absolute;
+    top: -1px;
+    border-top: 1.5px solid var(--yellow);
+  }
+  .drawer-corner.left { left: -1px; width: 16px; border-left: 1.5px solid var(--yellow); height: 16px; }
+
+  .drawer-header {
+    padding: 20px 24px 18px;
+    border-bottom: 1px solid var(--border);
+    position: relative;
+  }
+  .drawer-header .meta {
+    font-size: 9px;
+    color: var(--yellow);
+    letter-spacing: 0.25em;
+    text-transform: uppercase;
+    margin-bottom: 8px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .drawer-header .meta::before {
+    content: '◆';
+    font-size: 8px;
+  }
+
+  .drawer-title {
+    font-family: 'Instrument Serif', serif;
+    font-style: italic;
+    font-weight: 400;
+    font-size: 32px;
+    line-height: 1;
+    margin: 0;
+    color: var(--text);
+  }
+  .drawer-title .verified {
+    font-family: 'JetBrains Mono', monospace;
+    font-style: normal;
+    font-size: 9px;
+    color: var(--green);
+    letter-spacing: 0.15em;
+    text-transform: uppercase;
+    vertical-align: middle;
+    margin-left: 8px;
+  }
+
+  .drawer-desc {
+    margin-top: 12px;
+    color: var(--text-muted);
+    font-size: 12px;
+    line-height: 1.6;
+  }
+
+  .drawer-close {
+    position: absolute;
+    top: 16px; right: 16px;
+    width: 28px; height: 28px;
+    background: transparent;
+    border: 1px solid var(--border);
+    color: var(--text-muted);
+    cursor: pointer;
+    font-size: 12px;
+    font-family: inherit;
+  }
+  .drawer-close:hover { border-color: var(--yellow); color: var(--yellow); }
+
+  .drawer-body {
+    flex: 1;
+    overflow-y: auto;
+    scrollbar-width: thin;
+    scrollbar-color: var(--border) transparent;
+  }
+  .drawer-body::-webkit-scrollbar { width: 4px; }
+  .drawer-body::-webkit-scrollbar-thumb { background: var(--border); }
+
+  .section {
+    padding: 20px 24px;
+    border-bottom: 1px solid var(--border);
+  }
+  .section-label {
+    font-size: 9px;
+    color: var(--text-faint);
+    letter-spacing: 0.25em;
+    text-transform: uppercase;
+    margin-bottom: 14px;
+    font-weight: 500;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+  .section-label .num {
+    color: var(--yellow);
+    font-weight: 600;
+  }
+  .section-label::after {
+    content: '';
+    flex: 1;
+    height: 1px;
+    background: var(--border);
+  }
+
+  /* Address card */
+  .addr-card {
+    border: 1px solid var(--border);
+    padding: 14px 14px 12px;
+    margin-bottom: 10px;
+    position: relative;
+    background: rgba(0,0,0,0.2);
+  }
+  .addr-card.testnet { border-color: rgba(255, 201, 60, 0.3); }
+  .addr-card.mainnet::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 0; bottom: 0;
+    width: 2px;
+    background: var(--yellow);
+  }
+  .addr-card .label {
+    font-size: 9px;
+    color: var(--text-faint);
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+    margin-bottom: 6px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+  .addr-card .label .copy {
+    font-size: 9px;
+    color: var(--text-muted);
+    cursor: pointer;
+    text-transform: none;
+    letter-spacing: 0;
+  }
+  .addr-card .label .copy:hover { color: var(--yellow); }
+  .addr-card .addr {
+    font-size: 11px;
+    color: var(--text);
+    word-break: break-all;
+    margin-bottom: 12px;
+    padding: 4px 8px;
+    background: var(--bg);
+  }
+  .addr-card .links { display: flex; gap: 6px; }
+  .addr-card .link {
+    flex: 1;
+    text-align: center;
+    padding: 7px 8px;
+    border: 1px solid var(--border);
+    color: var(--text-muted);
+    font-size: 10px;
+    letter-spacing: 0.05em;
+    cursor: pointer;
+    text-decoration: none;
+  }
+  .addr-card .link:hover { border-color: var(--yellow); color: var(--yellow); }
+  .addr-card .link.primary {
+    border-color: var(--yellow);
+    color: var(--yellow);
+    background: var(--yellow-soft);
+  }
+
+  /* ABI block */
+  .abi-block {
+    background: var(--bg);
+    border: 1px solid var(--border);
+    padding: 12px;
+    font-size: 11px;
+    line-height: 1.7;
+    color: var(--text-muted);
+  }
+  .abi-block .kw { color: #C77272; }
+  .abi-block .fn { color: var(--yellow); }
+  .abi-block .ty { color: var(--t-api); }
+  .abi-block .mod { color: var(--text-faint); font-style: italic; }
+  .abi-block .more { color: var(--text-faint); margin-top: 6px; cursor: pointer; }
+  .abi-block .more:hover { color: var(--yellow); }
+
+  /* Caller list */
+  .caller {
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+    padding: 10px 12px;
+    border: 1px solid var(--border);
+    margin-bottom: 6px;
+    cursor: pointer;
+    background: rgba(0,0,0,0.15);
+  }
+  .caller:hover { border-color: var(--border-hover); background: var(--bg-soft); }
+  .caller .num {
+    width: 18px; height: 18px;
+    border: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 9px;
+    color: var(--text-faint);
+    flex-shrink: 0;
+  }
+  .caller .info { flex: 1; min-width: 0; }
+  .caller .name { font-size: 11px; color: var(--text); }
+  .caller .meta { font-size: 9px; color: var(--text-faint); margin-top: 2px; letter-spacing: 0.05em; }
+  .caller .method {
+    font-size: 9px;
+    color: var(--text-muted);
+    border: 1px solid var(--border);
+    padding: 2px 6px;
+    flex-shrink: 0;
+    align-self: flex-start;
+  }
+
+  .ask-section {
+    padding: 16px 24px 20px;
+    background:
+      repeating-linear-gradient(45deg, transparent, transparent 6px, rgba(255, 201, 60, 0.015) 6px, rgba(255, 201, 60, 0.015) 7px),
+      var(--bg);
+    border-top: 1px solid var(--yellow);
+    border-bottom: 1px solid var(--border);
+  }
+  .ask-section .ask-label {
+    font-size: 9px;
+    color: var(--yellow);
+    letter-spacing: 0.25em;
+    text-transform: uppercase;
+    margin-bottom: 12px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .ask-section .ask-label::before { content: '➜'; }
+  .ask-suggest {
+    font-size: 11px;
+    color: var(--text-muted);
+    padding: 4px 0;
+    cursor: pointer;
+    border-bottom: 1px dashed transparent;
+  }
+  .ask-suggest:hover { color: var(--yellow); border-bottom-color: var(--yellow); }
+  .ask-input {
+    margin-top: 10px;
+    background: var(--bg-panel);
+    border: 1px solid var(--border);
+    padding: 8px 10px;
+    font-size: 11px;
+    color: var(--text);
+    font-family: inherit;
+    width: 100%;
+    outline: none;
+  }
+  .ask-input:focus { border-color: var(--yellow); }
+  .ask-input::placeholder { color: var(--text-faint); font-style: italic; }
+
+  .drawer-footer {
+    padding: 14px 24px;
+    border-top: 1px solid var(--border);
+    display: flex;
+    gap: 8px;
+  }
+  .drawer-footer button {
+    flex: 1;
+    padding: 9px 12px;
+    background: transparent;
+    border: 1px solid var(--border);
+    color: var(--text-muted);
+    font-family: inherit;
+    font-size: 10px;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    cursor: pointer;
+  }
+  .drawer-footer button:hover { border-color: var(--yellow); color: var(--yellow); }
+
+  /* Annotation */
+  .annot {
+    position: fixed;
+    bottom: 16px;
+    left: 296px;
+    background: var(--bg-panel);
+    border: 1px solid var(--yellow);
+    padding: 14px 18px;
+    max-width: 340px;
+    font-size: 10px;
+    color: var(--text-muted);
+    line-height: 1.7;
+    z-index: 200;
+  }
+  .annot .ttl {
+    font-family: 'Instrument Serif', serif;
+    font-style: italic;
+    font-size: 14px;
+    color: var(--yellow);
+    margin-bottom: 6px;
+    line-height: 1;
+  }
+  .annot ul { margin: 0; padding-left: 14px; }
+  .annot li { margin-bottom: 3px; }
+  .annot .accent { color: var(--yellow); }
+
+  .corner-mark {
+    position: absolute;
+    width: 12px; height: 12px;
+    border: 1px solid var(--yellow);
+  }
+  .annot .corner-mark.tl { top: -1px; left: -1px; border-right: none; border-bottom: none; }
+  .annot .corner-mark.br { bottom: -1px; right: -1px; border-left: none; border-top: none; }
+</style>
+</head>
+<body>
+
+<!-- ============= TOP BAR ============= -->
+<div class="topbar">
+  <div class="logo">
+    <div class="logo-mark">L</div>
+    <div class="logo-text">
+      <span class="title">PANORAMA</span>
+      <span class="subtitle">Lista DAO · v0.1</span>
+    </div>
+  </div>
+
+  <div class="ticker">
+    <div class="ticker-cell">
+      <span class="ticker-label">CHAIN</span>
+      <span class="ticker-val">BSC Mainnet</span>
+    </div>
+    <div class="ticker-cell">
+      <span class="ticker-label">BLOCK</span>
+      <span class="ticker-val yellow">#47892374</span>
+    </div>
+    <div class="ticker-cell">
+      <span class="ticker-label">LAST SYNC</span>
+      <span class="ticker-val">02:14:38 UTC</span>
+    </div>
+    <div class="ticker-cell">
+      <span class="live-dot"></span>
+      <span style="color: var(--green); font-size: 10px; letter-spacing: 0.15em;">LIVE</span>
+    </div>
+    <div class="ticker-cell">
+      <span class="ticker-label">DOMAINS</span>
+      <span class="ticker-val">9</span>
+      <span class="ticker-label" style="margin-left: 12px;">NODES</span>
+      <span class="ticker-val">1247</span>
+    </div>
+  </div>
+
+  <div class="topbar-right">
+    <div class="search-box">
+      Search anything…
+      <span class="kbd">⌘K</span>
+    </div>
+    <button class="icon-btn" title="Rebuild">↻</button>
+    <button class="icon-btn" title="Settings">⚙</button>
+    <div style="width:32px;height:32px;background:var(--yellow);color:var(--bg);font-family:'Instrument Serif',serif;font-style:italic;font-size:18px;display:flex;align-items:center;justify-content:center;">s</div>
+  </div>
+</div>
+
+<!-- ============= MAIN ============= -->
+<div class="main">
+
+  <!-- SIDEBAR -->
+  <aside class="sidebar">
+    <div class="sidebar-section-label">业务树</div>
+    <div class="tree">
+      <div class="tree-item">
+        <span class="tree-arrow">▼</span>
+        <span class="tree-icon">◇</span>
+        <span class="tree-name">Lista DAO</span>
+      </div>
+      <div style="padding-left: 12px;">
+        <div class="tree-item">
+          <span class="tree-arrow">▼</span>
+          <span class="tree-icon">▣</span>
+          <span class="tree-name">Moolah</span>
+          <span class="count">11</span>
+        </div>
+        <div style="padding-left: 12px;">
+          <div class="tree-item">
+            <span class="tree-arrow">▶</span>
+            <span class="tree-icon">·</span>
+            <span class="tree-name">Supply &amp; Borrow</span>
+          </div>
+          <div class="tree-item active">
+            <span class="tree-arrow">▼</span>
+            <span class="tree-icon">·</span>
+            <span class="tree-name">Emission</span>
+            <span class="count">17</span>
+          </div>
+          <div style="font-size: 11px;">
+            <div class="tree-item" style="padding-left: 36px;"><span class="ttag ui">UI</span><span class="tree-name">Routes</span><span class="count">2</span></div>
+            <div class="tree-item" style="padding-left: 36px;"><span class="ttag api">API</span><span class="tree-name">Endpoints</span><span class="count">3</span></div>
+            <div class="tree-item" style="padding-left: 36px;"><span class="ttag cron">CRO</span><span class="tree-name">Cron Jobs</span><span class="count">5</span></div>
+            <div class="tree-item" style="padding-left: 36px;"><span class="ttag con">SOL</span><span class="tree-name" style="font-weight:500;">Contracts</span><span class="count">4</span></div>
+            <div class="tree-leaf active" style="padding-left: 70px;">◆ MerkleDistributor</div>
+            <div class="tree-leaf" style="padding-left: 70px;">· RewardRouter ×4</div>
+            <div class="tree-leaf" style="padding-left: 70px;">· LendingEmissionV2</div>
+            <div class="tree-item" style="padding-left: 36px;"><span class="ttag db">DB</span><span class="tree-name">Tables</span><span class="count">2</span></div>
+            <div class="tree-item" style="padding-left: 36px;"><span class="ttag rds">RDS</span><span class="tree-name">Redis</span><span class="count">3</span></div>
+          </div>
+          <div class="tree-item">
+            <span class="tree-arrow">▶</span>
+            <span class="tree-icon">·</span>
+            <span class="tree-name">Liquidation</span>
+          </div>
+          <div class="tree-item">
+            <span class="tree-arrow">▶</span>
+            <span class="tree-icon">·</span>
+            <span class="tree-name">Vault</span>
+          </div>
+        </div>
+        <div class="tree-item">
+          <span class="tree-arrow">▶</span>
+          <span class="tree-icon">▣</span>
+          <span class="tree-name">Staking</span>
+          <span class="count">5</span>
+        </div>
+        <div class="tree-item">
+          <span class="tree-arrow">▶</span>
+          <span class="tree-icon">▣</span>
+          <span class="tree-name">CDP</span>
+          <span class="count">3</span>
+        </div>
+        <div class="tree-item">
+          <span class="tree-arrow">▶</span>
+          <span class="tree-icon">▣</span>
+          <span class="tree-name">Governance</span>
+          <span class="count">6</span>
+        </div>
+        <div class="tree-item">
+          <span class="tree-arrow">▶</span>
+          <span class="tree-icon">▣</span>
+          <span class="tree-name">Revenue</span>
+        </div>
+        <div class="tree-item">
+          <span class="tree-arrow">▶</span>
+          <span class="tree-icon">▣</span>
+          <span class="tree-name">Credit</span>
+        </div>
+        <div class="tree-item">
+          <span class="tree-arrow">▶</span>
+          <span class="tree-icon">▣</span>
+          <span class="tree-name">RWA</span>
+        </div>
+        <div class="tree-item">
+          <span class="tree-arrow">▶</span>
+          <span class="tree-icon">▣</span>
+          <span class="tree-name">Infrastructure</span>
+        </div>
+      </div>
+    </div>
+  </aside>
+
+  <!-- CONTENT -->
+  <main class="content">
+    <!-- Breadcrumb -->
+    <div class="crumb">
+      <span>LISTA DAO</span>
+      <span class="crumb-sep">∕</span>
+      <span>MOOLAH</span>
+      <span class="crumb-sep">∕</span>
+      <span class="crumb-current">EMISSION</span>
+    </div>
+
+    <!-- Hero -->
+    <section class="hero">
+      <div class="hero-meta">
+        <span>DOMAIN ‹ MOOLAH</span>
+        <span>·</span>
+        <span class="verified">VERIFIED 2026-04-30</span>
+        <span>·</span>
+        <span>SOURCE lista-bot PR#456</span>
+      </div>
+      <h1>Moolah <span class="em">Emission</span> Rewards <span class="num">[17]</span></h1>
+      <p class="hero-desc">
+        通过 MerkleDistributor 周期性发放 lisUSD/LISTA 奖励给 Supply / Borrow / LP / Rockaway 用户。
+        Cron 在每周三计算 merkle root，setMerkleRoot 后用户可在前端 claim。
+      </p>
+      <div class="hero-tags">
+        <span class="htag">emission</span>
+        <span class="htag">merkle</span>
+        <span class="htag">claim</span>
+        <span class="htag">distributor</span>
+      </div>
+    </section>
+
+    <!-- Flow chart -->
+    <div class="flow-section-label">
+      <div class="label"><span class="num">02</span>FLOW · TOPOLOGY</div>
+      <div class="divider"></div>
+      <div class="controls">
+        <button class="ctrl-btn">EXPAND ALL</button>
+        <button class="ctrl-btn">HIGH-FREQ</button>
+        <button class="ctrl-btn active">AUTO LAYOUT</button>
+      </div>
+    </div>
+
+    <div class="flow-frame" style="max-width: 920px;">
+      <!-- Corner brackets -->
+      <span class="corner corner-tl"></span>
+      <span class="corner corner-tr"></span>
+      <span class="corner corner-bl"></span>
+      <span class="corner corner-br"></span>
+
+      <div class="flow-canvas">
+        <!-- Coord -->
+        <div class="coord">[ 0,0 ]</div>
+
+        <!-- Toolbar -->
+        <div class="flow-tools">
+          <button>＋</button>
+          <button>－</button>
+          <button>⊡</button>
+          <button>⌂</button>
+        </div>
+
+        <!-- Lane markers (right side) -->
+        <div class="lane" style="top: 50px;"><span class="lane-line"></span>UI</div>
+        <div class="lane" style="top: 150px;"><span class="lane-line"></span>API</div>
+        <div class="lane" style="top: 254px;"><span class="lane-line"></span>CRON</div>
+        <div class="lane" style="top: 354px;"><span class="lane-line"></span>CONTRACT</div>
+        <div class="lane" style="top: 446px;"><span class="lane-line"></span>DB</div>
+        <div class="lane" style="top: 525px;"><span class="lane-line"></span>REDIS</div>
+
+        <!-- SVG edges -->
+        <svg class="absolute" style="position:absolute;inset:0;width:100%;height:100%;pointer-events:none;" viewBox="0 0 880 600" preserveAspectRatio="xMidYMid meet">
+          <defs>
+            <marker id="ar" markerWidth="6" markerHeight="6" refX="5.5" refY="3" orient="auto">
+              <path d="M0 0 L 6 3 L 0 6 z" fill="#3F3F46"/>
+            </marker>
+            <marker id="ar-y" markerWidth="6" markerHeight="6" refX="5.5" refY="3" orient="auto">
+              <path d="M0 0 L 6 3 L 0 6 z" fill="#FFC93C"/>
+            </marker>
+            <marker id="ar-d" markerWidth="6" markerHeight="6" refX="5.5" refY="3" orient="auto">
+              <path d="M0 0 L 6 3 L 0 6 z" fill="#26262B"/>
+            </marker>
+          </defs>
+
+          <!-- UI → API -->
+          <path d="M 180 75 L 180 130" stroke="#3F3F46" stroke-width="1.2" fill="none" marker-end="url(#ar)"/>
+
+          <!-- API claimable → MerkleDistributor (yellow) -->
+          <path d="M 180 178 L 180 250 Q 180 256 186 256 L 194 256 Q 200 256 200 262 L 200 330"
+                stroke="#FFC93C" stroke-width="1.5" fill="none"
+                marker-end="url(#ar-y)" stroke-linejoin="round" opacity="0.85"/>
+
+          <!-- API admin → CRON (dashed, callCronApi) -->
+          <path d="M 480 178 L 480 198 Q 480 204 474 204 L 206 204 Q 200 204 200 210 L 200 230"
+                stroke="#26262B" stroke-width="1.2" stroke-dasharray="3 3" fill="none"
+                marker-end="url(#ar-d)" stroke-linejoin="round"/>
+
+          <!-- CRON → MerkleDistributor (yellow) -->
+          <path d="M 200 290 L 200 330" stroke="#FFC93C" stroke-width="1.5" fill="none"
+                marker-end="url(#ar-y)"/>
+
+          <!-- CRON autoClaim → RewardRouter -->
+          <path d="M 480 290 L 480 330" stroke="#3F3F46" stroke-width="1.2" fill="none" marker-end="url(#ar)"/>
+
+          <!-- CRON transfer → LendingEmission -->
+          <path d="M 720 290 L 720 330" stroke="#3F3F46" stroke-width="1.2" fill="none" marker-end="url(#ar)"/>
+
+          <!-- CRON → DB -->
+          <path d="M 200 290 L 200 410 Q 200 416 206 416 L 274 416 Q 280 416 280 422 L 280 425"
+                stroke="#3F3F46" stroke-width="1.2" fill="none"
+                marker-end="url(#ar)" stroke-linejoin="round" opacity="0.7"/>
+          <path d="M 480 290 L 480 410 Q 480 416 486 416 L 534 416 Q 540 416 540 422 L 540 425"
+                stroke="#3F3F46" stroke-width="1.2" fill="none"
+                marker-end="url(#ar)" stroke-linejoin="round" opacity="0.7"/>
+
+          <!-- CRON → REDIS -->
+          <path d="M 220 290 L 220 495 Q 220 501 226 501 L 284 501 Q 290 501 290 507 L 290 510"
+                stroke="#3F3F46" stroke-width="1.2" fill="none"
+                marker-end="url(#ar)" stroke-linejoin="round" opacity="0.5"/>
+          <path d="M 500 290 L 500 495 Q 500 501 506 501 L 554 501 Q 560 501 560 507 L 560 510"
+                stroke="#3F3F46" stroke-width="1.2" fill="none"
+                marker-end="url(#ar)" stroke-linejoin="round" opacity="0.5"/>
+        </svg>
+
+        <!-- Edge labels -->
+        <div class="edge-label highlight" style="left: 187px; top: 245px;">read</div>
+        <div class="edge-label italic" style="left: 305px; top: 196px;">callCronApi()</div>
+        <div class="edge-label highlight" style="left: 207px; top: 305px;">setMerkleRoot</div>
+        <div class="edge-label" style="left: 487px; top: 305px;">claim</div>
+        <div class="edge-label" style="left: 727px; top: 305px;">transfer</div>
+
+        <!-- ============= NODES ============= -->
+        <!-- UI -->
+        <div class="node" data-type="ui" style="left: 100px; top: 30px; width: 160px;">
+          <div class="node-header">
+            <span class="node-type-tag">UI</span>
+            <span class="node-meta">RewardsPage</span>
+          </div>
+          <div class="node-body">
+            <div class="node-name">/dashboard/rewards</div>
+          </div>
+        </div>
+
+        <!-- API -->
+        <div class="node" data-type="api" style="left: 80px; top: 130px; width: 200px;">
+          <div class="node-header">
+            <span class="node-type-tag">GET</span>
+            <span class="node-meta">lista-admin</span>
+          </div>
+          <div class="node-body">
+            <div class="node-name">/api/moolah/rewards/claimable</div>
+          </div>
+        </div>
+
+        <div class="node" data-type="api" style="left: 380px; top: 130px; width: 200px;">
+          <div class="node-header">
+            <span class="node-type-tag">POST</span>
+            <span class="node-meta">lista-admin</span>
+          </div>
+          <div class="node-body">
+            <div class="node-name">/api/admin/emission/sync</div>
+          </div>
+        </div>
+
+        <!-- CRON -->
+        <div class="node" data-type="cron" style="left: 100px; top: 230px; width: 200px;">
+          <div class="node-header">
+            <span class="node-type-tag">CRON</span>
+            <span class="node-meta">XJOB 50007 · WED</span>
+          </div>
+          <div class="node-body">
+            <div class="node-name">moolahEmissionTask</div>
+            <div class="node-sub">同步 merkle root</div>
+          </div>
+        </div>
+
+        <div class="node" data-type="cron" style="left: 380px; top: 230px; width: 200px;">
+          <div class="node-header">
+            <span class="node-type-tag">CRON</span>
+            <span class="node-meta">XJOB 50008 · THU</span>
+          </div>
+          <div class="node-body">
+            <div class="node-name">autoClaimForPartners</div>
+            <div class="node-sub">代领 partner 奖励</div>
+          </div>
+        </div>
+
+        <div class="node" data-type="cron" style="left: 620px; top: 230px; width: 200px;">
+          <div class="node-header">
+            <span class="node-type-tag">CRON</span>
+            <span class="node-meta">XJOB 50011-13</span>
+          </div>
+          <div class="node-body">
+            <div class="node-name">processRewardsTransfer</div>
+            <div class="node-sub">分批转 reward token</div>
+          </div>
+        </div>
+
+        <!-- CONTRACT (selected) -->
+        <div class="node selected" data-type="contract" style="left: 100px; top: 330px; width: 200px;">
+          <div class="node-header">
+            <span class="node-type-tag">SOL</span>
+            <span class="node-meta">BSC · Verified</span>
+            <div class="contract-icons">
+              <a title="Mainnet">M</a>
+              <a title="Testnet">T</a>
+              <a title="ABI">A</a>
+            </div>
+          </div>
+          <div class="node-body">
+            <div class="node-name">MerkleDistributor</div>
+            <div class="node-sub">0x6Bd0f9CC…A3f4 · 3 callers</div>
+          </div>
+        </div>
+
+        <div class="node" data-type="contract" style="left: 380px; top: 330px; width: 200px;">
+          <div class="node-header">
+            <span class="node-type-tag">SOL</span>
+            <span class="node-meta">×4 instances</span>
+            <div class="contract-icons">
+              <a>M</a><a>T</a>
+            </div>
+          </div>
+          <div class="node-body">
+            <div class="node-name">RewardRouter</div>
+            <div class="node-sub">Supply / LP / Borrow / Rockaway</div>
+          </div>
+        </div>
+
+        <div class="node" data-type="contract" style="left: 620px; top: 330px; width: 200px;">
+          <div class="node-header">
+            <span class="node-type-tag">SOL</span>
+            <span class="node-meta">BSC Mainnet</span>
+            <div class="contract-icons">
+              <a>M</a><a>T</a>
+            </div>
+          </div>
+          <div class="node-body">
+            <div class="node-name">LendingEmissionV2</div>
+            <div class="node-sub">0x4F1d…8eA2</div>
+          </div>
+        </div>
+
+        <!-- DB -->
+        <div class="node" data-type="db" style="left: 180px; top: 425px; width: 200px;">
+          <div class="node-header">
+            <span class="node-type-tag">DB</span>
+            <span class="node-meta">MySQL</span>
+          </div>
+          <div class="node-body">
+            <div class="node-name">merkle_root_log</div>
+          </div>
+        </div>
+
+        <div class="node" data-type="db" style="left: 440px; top: 425px; width: 200px;">
+          <div class="node-header">
+            <span class="node-type-tag">DB</span>
+            <span class="node-meta">MySQL</span>
+          </div>
+          <div class="node-body">
+            <div class="node-name">emission_reward_log</div>
+          </div>
+        </div>
+
+        <!-- REDIS -->
+        <div class="node" data-type="redis" style="left: 180px; top: 510px; width: 220px;">
+          <div class="node-header">
+            <span class="node-type-tag">RDS</span>
+            <span class="node-meta">String · TTL 1d</span>
+          </div>
+          <div class="node-body">
+            <div class="node-name">moolah:emission:pending_root</div>
+          </div>
+        </div>
+
+        <div class="node" data-type="redis" style="left: 440px; top: 510px; width: 240px;">
+          <div class="node-header">
+            <span class="node-type-tag">RDS</span>
+            <span class="node-meta">Hash · TTL 7d</span>
+          </div>
+          <div class="node-body">
+            <div class="node-name">moolah:claim_status:{addr}</div>
+          </div>
+        </div>
+
+        <!-- Status bar inside flow -->
+        <div class="flow-status">
+          <div class="legend-item"><span class="swatch" style="background: var(--t-ui);"></span>UI</div>
+          <div class="legend-item"><span class="swatch" style="background: var(--t-api);"></span>API</div>
+          <div class="legend-item"><span class="swatch" style="background: var(--t-cron);"></span>CRON</div>
+          <div class="legend-item"><span class="swatch" style="background: var(--t-contract);"></span>CONTRACT</div>
+          <div class="legend-item"><span class="swatch" style="background: var(--t-db);"></span>DB</div>
+          <div class="legend-item"><span class="swatch" style="background: var(--t-redis);"></span>REDIS</div>
+          <div class="legend-item right"><span class="swatch" style="background: var(--text-faint);"></span>权威</div>
+          <div class="legend-item"><span class="swatch" style="background: repeating-linear-gradient(to right, var(--text-faint) 0 2px, transparent 2px 4px); height: 1px;"></span>推断</div>
+        </div>
+
+      </div>
+    </div>
+
+    <!-- Drawer (always overlay) -->
+    <aside class="drawer">
+      <div class="drawer-header">
+        <div class="meta">CONTRACT · MOOLAH/EMISSION</div>
+        <h1 class="drawer-title">Merkle<span style="font-style:normal;font-family:'JetBrains Mono';font-size:0.55em;color:var(--text-faint);">·</span>Distributor<span class="verified">● VERIFIED</span></h1>
+        <div class="drawer-desc">
+          基于 merkle proof 的奖励分发合约。每周三 setMerkleRoot 后用户在前端 claim 奖励。
+        </div>
+        <button class="drawer-close">✕</button>
+      </div>
+
+      <div class="drawer-body">
+        <!-- Address section -->
+        <div class="section">
+          <div class="section-label"><span class="num">01</span>DEPLOYED ADDRESS</div>
+
+          <div class="addr-card mainnet">
+            <div class="label">
+              <span>BSC MAINNET</span>
+              <span class="copy">[copy]</span>
+            </div>
+            <div class="addr">0x6Bd07f9CC4...8eA2A3f4</div>
+            <div class="links">
+              <a class="link primary">↗ BscScan</a>
+              <a class="link">⟶ Read Contract</a>
+            </div>
+          </div>
+
+          <div class="addr-card testnet">
+            <div class="label">
+              <span>BSC TESTNET</span>
+              <span class="copy">[copy]</span>
+            </div>
+            <div class="addr">0x9aE12b04...c5DF21</div>
+            <div class="links">
+              <a class="link">↗ Testnet BscScan</a>
+              <a class="link">⟶ Read Contract</a>
+            </div>
+          </div>
+        </div>
+
+        <!-- ABI section -->
+        <div class="section">
+          <div class="section-label"><span class="num">02</span>ABI · KEY METHODS</div>
+          <div class="abi-block">
+            <div><span class="kw">function</span> <span class="fn">setMerkleRoot</span>(<span class="ty">bytes32</span> _root) <span class="mod">external onlyOwner</span></div>
+            <div><span class="kw">function</span> <span class="fn">claim</span>(<span class="ty">address</span> account, <span class="ty">uint256</span> amount, <span class="ty">bytes32[]</span> proof)</div>
+            <div><span class="kw">function</span> <span class="fn">isClaimed</span>(<span class="ty">uint256</span> index) <span class="mod">view returns</span> (<span class="ty">bool</span>)</div>
+            <div class="more">→ 4 more methods · view full ABI</div>
+          </div>
+        </div>
+
+        <!-- Callers -->
+        <div class="section">
+          <div class="section-label"><span class="num">03</span>CALLERS · 3</div>
+          <div class="caller">
+            <div class="num">01</div>
+            <div class="info">
+              <div class="name">moolahEmissionTask</div>
+              <div class="meta">CRON · LISTA-CRON · XJOB 50007</div>
+            </div>
+            <div class="method">setMerkleRoot</div>
+          </div>
+          <div class="caller">
+            <div class="num">02</div>
+            <div class="info">
+              <div class="name">autoClaimForPartners</div>
+              <div class="meta">CRON · LISTA-BOT · XJOB 50008</div>
+            </div>
+            <div class="method">claim</div>
+          </div>
+          <div class="caller">
+            <div class="num">03</div>
+            <div class="info">
+              <div class="name">/api/moolah/rewards/claimable</div>
+              <div class="meta">API · LISTA-ADMIN</div>
+            </div>
+            <div class="method">isClaimed</div>
+          </div>
+        </div>
+
+        <!-- Ask -->
+        <div class="ask-section">
+          <div class="ask-label">ASK PANORAMA</div>
+          <div class="ask-suggest">→ MerkleDistributor 的 owner 是谁？怎么 setMerkleRoot？</div>
+          <div class="ask-suggest">→ 测试网合约最近一次部署是什么时候？</div>
+          <div class="ask-suggest">→ 这个合约有没有 emergency pause 机制？</div>
+          <input class="ask-input" placeholder="或者，直接问点别的…"/>
+        </div>
+      </div>
+
+      <div class="drawer-footer">
+        <button>📖 业务文档</button>
+        <button>↗ GitHub 源码</button>
+      </div>
+    </aside>
+  </main>
+</div>
+
+<!-- Annotation -->
+<div class="annot">
+  <span class="corner-mark tl"></span>
+  <span class="corner-mark br"></span>
+  <div class="ttl">v2 · Engineering Console</div>
+  <ul>
+    <li>纯黑 + Lista 黄 唯一品牌色，<span class="accent">不再彩虹</span></li>
+    <li>全 <span class="accent">JetBrains Mono</span> + Instrument Serif 大标题</li>
+    <li>顶栏 ambient 跑链上区块号 + LIVE 心跳</li>
+    <li>流程图四角 [ <span class="accent">CAD 角括号</span> ] + 24px 网格底图</li>
+    <li>选中节点用品牌黄发光 + ◆ 角标</li>
+    <li>抽屉黄边 + 右侧大衬线 italic 标题</li>
+    <li>3% SVG grain 全局质感</li>
+  </ul>
+</div>
+
+</body>
+</html>

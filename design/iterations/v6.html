@@ -1,0 +1,904 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<title>Panorama v6 — Flow Fixed</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #141522;
+    --bg-1: #1C1D2C;
+    --bg-2: #25273A;
+    --bg-3: #303248;
+    --border: #393B52;
+    --border-2: #4A4D68;
+    --border-strong: #5C5F7C;
+
+    --text: #F4F5FC;
+    --text-2: #C4C7DB;
+    --text-3: #888BA4;
+    --text-4: #5F6280;
+
+    --primary: #8378FF;
+    --primary-2: #6B5FE8;
+    --primary-soft: rgba(131, 120, 255, 0.13);
+    --primary-glow: rgba(131, 120, 255, 0.40);
+    --primary-grad: linear-gradient(135deg, #8378FF 0%, #6058D6 100%);
+
+    --brand: #FFC93C;
+    --brand-2: #FF8F27;
+    --brand-grad: linear-gradient(135deg, #FFD25F 0%, #FF8F27 100%);
+
+    --success: #5DE090;
+    --warn: #FFB840;
+    --error: #F87171;
+
+    --t-ui: #5BC0DE;
+    --t-api: #5DE090;
+    --t-cron: #FFB840;
+    --t-contract: #F87171;
+    --t-db: #B19DFF;
+    --t-redis: #F58BC2;
+  }
+
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; }
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'Inter', -apple-system, "PingFang SC", sans-serif;
+    font-size: 13px;
+    line-height: 1.5;
+    -webkit-font-smoothing: antialiased;
+    overflow: hidden;
+    height: 100vh;
+  }
+
+  /* TOP BAR */
+  .topbar {
+    height: 52px;
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    background: var(--bg);
+    padding: 0 20px;
+    gap: 16px;
+  }
+  .logo { display:flex;align-items:center;gap:10px;height:32px;padding-right:16px;border-right:1px solid var(--border); }
+  .logo-mark { width:26px;height:26px;border-radius:50%;background:var(--brand-grad);display:flex;align-items:center;justify-content:center;color:#1a1500;font-weight:700;font-size:14px; }
+  .logo-text { font-size:14px;font-weight:600;letter-spacing:-0.01em;color:var(--text); }
+  .logo-text .sub { font-size:11px;color:var(--text-3);font-weight:400;margin-left:6px; }
+
+  .status-pill { display:flex;align-items:center;gap:6px;padding:5px 10px;background:var(--bg-1);border:1px solid var(--border);border-radius:6px;font-size:11px;color:var(--text-2);font-family:'JetBrains Mono',monospace; }
+  .status-pill .dot { width:6px;height:6px;border-radius:50%;background:var(--success);box-shadow:0 0 8px var(--success);animation:blink 2s infinite; }
+  @keyframes blink { 0%,100% {opacity:1;} 50% {opacity:.5;} }
+
+  .top-spacer { flex:1; }
+
+  .search { display:flex;align-items:center;background:var(--bg-1);border:1px solid var(--border);border-radius:7px;padding:6px 12px;width:320px;font-size:13px;color:var(--text-2);cursor:pointer;gap:8px; }
+  .search:hover { border-color:var(--border-2); }
+  .search .kbd { margin-left:auto;font-size:10px;color:var(--text-3);border:1px solid var(--border);padding:1px 5px;border-radius:3px;font-family:'JetBrains Mono',monospace;background:var(--bg-2); }
+
+  .topbar-actions { display:flex;align-items:center;gap:8px; }
+  .icon-btn { width:30px;height:30px;border-radius:7px;background:transparent;border:1px solid var(--border);color:var(--text-2);cursor:pointer;display:flex;align-items:center;justify-content:center; }
+  .icon-btn:hover { border-color:var(--border-2);color:var(--text);background:var(--bg-1); }
+  .avatar { width:30px;height:30px;border-radius:50%;background:var(--primary-grad);display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:600;color:white; }
+
+  .main { display:grid;grid-template-columns:256px 1fr;height:calc(100vh - 52px); }
+
+  .sidebar { border-right:1px solid var(--border);background:var(--bg);overflow-y:auto;scrollbar-width:thin;scrollbar-color:var(--border-2) transparent; }
+  .sidebar::-webkit-scrollbar { width:4px; }
+  .sidebar::-webkit-scrollbar-thumb { background:var(--border-2);border-radius:2px; }
+  .sidebar-head { padding:14px 16px 8px;color:var(--text-3);font-size:11px;font-weight:600;letter-spacing:0.06em;text-transform:uppercase; }
+  .tree { padding:0 8px 16px; }
+  .tree-row { display:flex;align-items:center;gap:6px;padding:6px 10px;border-radius:6px;cursor:pointer;color:var(--text);font-size:13px;user-select:none; }
+  .tree-row:hover { background:var(--bg-1); }
+  .tree-row.active { background:var(--primary-soft);color:#C9C2FF;font-weight:500; }
+  .tree-row.active .tree-count { color:#C9C2FF; }
+  .tree-arrow { font-size:9px;color:var(--text-3);width:10px; }
+  .tree-name { flex:1; }
+  .tree-count { font-size:11px;color:var(--text-3);font-family:'JetBrains Mono',monospace; }
+
+  .ttag { font-size:9px;font-weight:700;padding:1px 5px;border-radius:3px;line-height:1.3;background:rgba(255,255,255,0.05);border:1px solid currentColor;margin-right:2px; }
+  .ttag.ui {color:var(--t-ui);} .ttag.api{color:var(--t-api);} .ttag.cron{color:var(--t-cron);} .ttag.con{color:var(--t-contract);} .ttag.db{color:var(--t-db);} .ttag.rds{color:var(--t-redis);}
+
+  .tree-leaf { padding:4px 10px 4px 36px;font-size:12px;color:var(--text-2);cursor:pointer;border-radius:6px;display:flex;align-items:center;gap:8px;font-family:'JetBrains Mono',monospace; }
+  .tree-leaf:hover { color:var(--text);background:var(--bg-1); }
+  .tree-leaf.active { color:#C9C2FF;background:var(--primary-soft); }
+  .tree-leaf .dot { width:5px;height:5px;border-radius:50%;background:var(--t-contract);flex-shrink:0; }
+
+  .content { overflow-y:auto;background:var(--bg);position:relative; }
+  .content-pad { padding:28px 36px 36px; }
+
+  .crumb { font-size:13px;color:var(--text-2);margin-bottom:18px;display:flex;align-items:center;gap:8px; }
+  .crumb-back { color:var(--text-2);cursor:pointer; } .crumb-back:hover { color:var(--text); }
+  .crumb-sep { color:var(--text-3); }
+  .crumb-current { color:var(--text);font-weight:500; }
+
+  .hero { display:flex;align-items:flex-start;justify-content:space-between;gap:32px;margin-bottom:22px; }
+  .hero-info { flex:1;min-width:0; }
+  .hero h1 { margin:0 0 6px;font-size:22px;font-weight:600;letter-spacing:-0.01em;color:var(--text); }
+  .hero-desc { color:var(--text-2);font-size:13px;line-height:1.6;max-width:720px; }
+  .hero-tags { display:flex;gap:6px;margin-top:10px;flex-wrap:wrap; }
+  .htag { font-size:11px;color:var(--text-2);background:var(--bg-1);border:1px solid var(--border);padding:2px 8px;border-radius:4px; }
+  .htag::before { content:'#';color:var(--text-3);margin-right:1px; }
+  .hero-meta { text-align:right;font-size:11px;color:var(--text-2);line-height:1.7;flex-shrink:0; }
+  .hero-meta strong { color:var(--text);font-weight:500; }
+  .hero-meta .verified::before { content:'';display:inline-block;width:5px;height:5px;border-radius:50%;background:var(--success);margin-right:5px;vertical-align:middle; }
+
+  .stats { display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:26px; }
+  .stat { background:linear-gradient(180deg,var(--bg-1) 0%,var(--bg) 100%);border:1px solid var(--border);border-radius:10px;padding:12px 14px;display:flex;align-items:center;gap:10px; }
+  .stat-icon { width:32px;height:32px;border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:14px; }
+  .stat-icon.cron{background:rgba(255,184,64,.15);color:var(--t-cron);}
+  .stat-icon.con{background:rgba(248,113,113,.15);color:var(--t-contract);}
+  .stat-icon.api{background:rgba(93,224,144,.15);color:var(--t-api);}
+  .stat-icon.storage{background:rgba(177,157,255,.15);color:var(--t-db);}
+  .stat-info { flex:1; }
+  .stat-label { font-size:11px;color:var(--text-2);margin-bottom:1px; }
+  .stat-value { font-size:18px;font-weight:600;color:var(--text);font-family:'JetBrains Mono',monospace; }
+
+  .sec-head { display:flex;align-items:center;justify-content:space-between;margin-bottom:14px; }
+  .sec-title { font-size:14px;font-weight:600;color:var(--text); }
+  .sec-tools { display:flex;gap:6px; }
+  .sec-tools button { background:var(--bg-1);border:1px solid var(--border);color:var(--text-2);padding:5px 11px;border-radius:6px;font-size:12px;cursor:pointer;font-family:inherit; }
+  .sec-tools button:hover { color:var(--text);border-color:var(--border-2); }
+  .sec-tools button.active { color:#C9C2FF;background:var(--primary-soft);border-color:rgba(131,120,255,.5); }
+
+  /* ============= FLOW ============= */
+  .flow-wrap { width: 1080px; max-width: 100%; }
+
+  .flow {
+    width: 1080px;
+    height: 700px;
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    position: relative;
+    overflow: hidden;
+    background:
+      radial-gradient(ellipse 80% 50% at 50% 0%, rgba(131, 120, 255, 0.06) 0%, transparent 70%),
+      radial-gradient(ellipse 80% 50% at 50% 100%, rgba(255, 143, 39, 0.03) 0%, transparent 70%),
+      linear-gradient(180deg, #1A1B2A 0%, #14151F 100%);
+  }
+  .flow::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background-image:
+      linear-gradient(rgba(255,255,255,0.022) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(255,255,255,0.022) 1px, transparent 1px);
+    background-size: 24px 24px;
+    mask-image: radial-gradient(ellipse 90% 80% at 50% 50%, black 60%, transparent 100%);
+    -webkit-mask-image: radial-gradient(ellipse 90% 80% at 50% 50%, black 60%, transparent 100%);
+    pointer-events: none;
+  }
+
+  /* Lane backgrounds (cover lane + preceding gap) */
+  .lane-bg { position:absolute;left:0;right:0;pointer-events:none;z-index:0; }
+  .lane-bg.ui     { top:0;     height:120px; background:linear-gradient(180deg, rgba(91,192,222,0.04), transparent); }
+  .lane-bg.api    { top:120px; height:110px; background:linear-gradient(180deg, rgba(93,224,144,0.035), transparent); }
+  .lane-bg.cron   { top:230px; height:130px; background:linear-gradient(180deg, rgba(255,184,64,0.04), transparent); }
+  .lane-bg.con    { top:360px; height:130px; background:linear-gradient(180deg, rgba(248,113,113,0.045), transparent); }
+  .lane-bg.db     { top:490px; height:108px; background:linear-gradient(180deg, rgba(177,157,255,0.035), transparent); }
+  .lane-bg.redis  { top:598px; height:102px; background:linear-gradient(180deg, rgba(245,139,194,0.035), transparent); }
+
+  /* Lane labels — vertically centered on each lane */
+  .lane { position:absolute;left:16px;z-index:2;display:flex;align-items:center;gap:10px;font-size:10px;font-weight:700;letter-spacing:0.18em;text-transform:uppercase; }
+  .lane-bar { width:3px;height:14px;border-radius:2px;background:currentColor; }
+  .lane.ui     { color:var(--t-ui);       top:53px; }
+  .lane.api    { color:var(--t-api);      top:143px; }
+  .lane.cron   { color:var(--t-cron);     top:263px; }
+  .lane.con    { color:var(--t-contract); top:393px; }
+  .lane.db     { color:var(--t-db);       top:512px; }
+  .lane.redis  { color:var(--t-redis);    top:620px; }
+
+  .flow-overlay { position:absolute;z-index:30;background:rgba(28,29,44,.92);backdrop-filter:blur(12px);border:1px solid var(--border-2);border-radius:8px;box-shadow:0 8px 24px rgba(0,0,0,.4); }
+
+  .flow-tools { top:12px;right:12px;display:flex;flex-direction:column;overflow:hidden; }
+  .flow-tools button { width:30px;height:30px;background:transparent;border:none;color:var(--text-2);cursor:pointer;font-size:13px;border-bottom:1px solid var(--border);font-family:inherit; }
+  .flow-tools button:last-child { border-bottom:none; }
+  .flow-tools button:hover { color:var(--text);background:var(--bg-2); }
+
+  .legend { top:12px;left:12px;display:flex;gap:14px;padding:7px 14px;font-size:11px;color:var(--text-2); }
+  .legend-item { display:flex;align-items:center;gap:5px; }
+  .legend-dot { width:8px;height:8px;border-radius:2px; }
+
+  .flow-status { bottom:12px;right:12px;display:flex;align-items:center;gap:14px;padding:6px 12px;font-size:11px;color:var(--text-2); }
+  .flow-status .num { color:var(--text);font-weight:500;font-family:'JetBrains Mono',monospace; }
+
+  .minimap { bottom:12px;left:12px;width:130px;height:80px;padding:6px; }
+  .minimap-inner { width:100%;height:100%;position:relative; }
+  .mn { position:absolute;height:5px;border-radius:1px; }
+  .minimap-vp { position:absolute;inset:0;border:1px solid var(--primary);border-radius:2px;box-shadow:0 0 0 2px rgba(131,120,255,.18); }
+
+  /* ============= NODES ============= */
+  .node {
+    position: absolute;
+    background: linear-gradient(180deg, var(--bg-2) 0%, var(--bg-1) 100%);
+    border: 1px solid var(--border-2);
+    border-radius: 10px;
+    cursor: pointer;
+    transition: transform .18s cubic-bezier(0.32, 0.72, 0, 1), border-color .15s, box-shadow .15s, opacity .25s;
+    z-index: 10;
+    overflow: hidden;
+    box-shadow: 0 1px 0 rgba(255,255,255,0.04) inset, 0 4px 14px -6px rgba(0,0,0,0.5);
+    display: flex;
+    flex-direction: column;
+  }
+  .node:hover {
+    border-color: var(--border-strong);
+    transform: translateY(-2px);
+    box-shadow: 0 1px 0 rgba(255,255,255,0.06) inset, 0 8px 22px -6px rgba(0,0,0,0.6);
+    z-index: 11;
+  }
+
+  .node[data-type]::before { content:'';position:absolute;top:0;left:0;right:0;height:2px;z-index:1; }
+  .node[data-type='ui']::before       { background: var(--t-ui); }
+  .node[data-type='api']::before      { background: var(--t-api); }
+  .node[data-type='cron']::before     { background: var(--t-cron); }
+  .node[data-type='contract']::before { background: var(--t-contract); }
+  .node[data-type='db']::before       { background: var(--t-db); }
+  .node[data-type='redis']::before    { background: var(--t-redis); }
+
+  .node-head {
+    padding: 7px 11px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 10px;
+    color: var(--text-2);
+    border-bottom: 1px solid var(--border);
+    background: rgba(255,255,255,0.018);
+    height: 28px;
+    flex-shrink: 0;
+  }
+  .node-tag { font-size:9px;font-weight:700;letter-spacing:0.1em;flex-shrink:0; }
+  .node[data-type='ui']       .node-tag { color: var(--t-ui); }
+  .node[data-type='api']      .node-tag { color: var(--t-api); }
+  .node[data-type='cron']     .node-tag { color: var(--t-cron); }
+  .node[data-type='contract'] .node-tag { color: var(--t-contract); }
+  .node[data-type='db']       .node-tag { color: var(--t-db); }
+  .node[data-type='redis']    .node-tag { color: var(--t-redis); }
+
+  .node-meta {
+    margin-left: auto;
+    font-size: 10px;
+    color: var(--text-3);
+    font-family: 'JetBrains Mono', monospace;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    min-width: 0;
+  }
+  .node-status {
+    width: 6px; height: 6px;
+    border-radius: 50%;
+    background: var(--success);
+    box-shadow: 0 0 4px var(--success);
+    flex-shrink: 0;
+  }
+  .node-status.warn { background: var(--warn); box-shadow: 0 0 4px var(--warn); }
+
+  .node-body {
+    padding: 10px 12px;
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    min-height: 0;
+  }
+  .node-name {
+    font-size: 13px;
+    color: var(--text);
+    font-weight: 500;
+    font-family: 'JetBrains Mono', monospace;
+    letter-spacing: -0.01em;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    line-height: 1.35;
+  }
+  .node-sub {
+    font-size: 11px;
+    color: var(--text-2);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    margin-top: 3px;
+    line-height: 1.4;
+  }
+  .node-sub.mono { font-family:'JetBrains Mono',monospace;color:var(--text-3);font-size:10.5px; }
+
+  /* CONTRACT — drop status dot to free header space */
+  .node[data-type='contract'] .node-status { display: none; }
+
+  /* Selected — Lista purple */
+  .node.selected {
+    border-color: var(--primary);
+    background:
+      radial-gradient(ellipse at top, rgba(131, 120, 255, 0.20) 0%, transparent 70%),
+      linear-gradient(180deg, var(--bg-2) 0%, var(--bg-1) 100%);
+    box-shadow:
+      0 0 0 1px var(--primary),
+      0 0 28px -6px var(--primary-glow),
+      0 12px 36px -10px var(--primary-glow);
+    z-index: 15;
+  }
+  .node.selected .node-head {
+    background: linear-gradient(180deg, rgba(131, 120, 255, 0.18) 0%, rgba(131, 120, 255, 0.06) 100%);
+    border-bottom-color: rgba(131, 120, 255, 0.30);
+  }
+  .node.selected .node-name { color: #DDD7FF; }
+  .node.selected .node-tag { color: #C9C2FF; }
+  .node.selected::before { background: var(--primary); height: 2px; }
+
+  .node.related {
+    border-color: rgba(131, 120, 255, 0.45);
+    box-shadow: 0 0 0 1px rgba(131, 120, 255, 0.22), 0 4px 14px -6px rgba(0,0,0,0.5);
+  }
+
+  .flow.has-selected .node:not(.selected):not(.related) { opacity: 0.7; }
+
+  .handle {
+    position: absolute;
+    width: 7px; height: 7px;
+    border-radius: 50%;
+    background: var(--primary);
+    border: 1.5px solid var(--bg);
+    z-index: 12;
+    pointer-events: none;
+  }
+  .handle.top    { top: -3.5px; left: 50%; transform: translateX(-50%); }
+  .handle.bottom { bottom: -3.5px; left: 50%; transform: translateX(-50%); }
+  .handle.left   { left: -3.5px; top: 50%; transform: translateY(-50%); }
+
+  .ico {
+    width: 18px; height: 18px;
+    border-radius: 4px;
+    color: var(--text-3);
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    text-decoration: none;
+    font-size: 11px;
+    flex-shrink: 0;
+  }
+  .ico:hover { background: var(--bg-3); color: var(--primary); }
+  .ico-group { display: flex; gap: 1px; margin-left: 4px; flex-shrink: 0; }
+
+  .edge-label {
+    position: absolute;
+    background: var(--bg-2);
+    border: 1px solid var(--border-2);
+    padding: 3px 8px;
+    font-size: 10px;
+    color: var(--text-2);
+    border-radius: 4px;
+    z-index: 9;
+    pointer-events: none;
+    font-family: 'JetBrains Mono', monospace;
+    font-weight: 500;
+    letter-spacing: -0.01em;
+    line-height: 1;
+    white-space: nowrap;
+  }
+  .edge-label.highlight {
+    border-color: var(--primary);
+    color: #DDD7FF;
+    background: rgba(36, 28, 80, 0.95);
+    box-shadow: 0 0 12px -4px var(--primary-glow);
+  }
+  .edge-label.italic { font-style:italic;font-family:inherit;color:var(--text-3); }
+
+  .e-flow {
+    stroke-dasharray: 6 6;
+    animation: dash-flow 2.4s linear infinite;
+  }
+  @keyframes dash-flow { to { stroke-dashoffset: -24; } }
+
+  .drawer-tab {
+    position: absolute;
+    top: 50%;
+    right: 0;
+    transform: translateY(-50%);
+    z-index: 50;
+    width: 36px;
+    background: var(--bg-1);
+    border: 1px solid var(--border-2);
+    border-right: none;
+    border-radius: 8px 0 0 8px;
+    padding: 14px 0;
+    cursor: pointer;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 8px;
+    color: var(--text-2);
+  }
+  .drawer-tab:hover { background:var(--bg-2);color:var(--text); }
+  .drawer-tab .arrow { font-size: 14px; color: var(--primary); }
+  .drawer-tab .v-text {
+    writing-mode: vertical-rl;
+    text-orientation: mixed;
+    letter-spacing: 0.15em;
+    text-transform: uppercase;
+    font-size: 10px;
+  }
+
+  .annot {
+    position: fixed;
+    bottom: 14px;
+    left: 272px;
+    background: var(--bg-1);
+    border: 1px solid var(--border-2);
+    border-radius: 10px;
+    padding: 12px 14px;
+    max-width: 360px;
+    font-size: 11px;
+    color: var(--text-2);
+    line-height: 1.7;
+    z-index: 200;
+    box-shadow: 0 4px 16px rgba(0,0,0,.4);
+  }
+  .annot .ttl { font-size:12px;font-weight:600;color:var(--text);margin-bottom:4px; }
+  .annot .ttl::before { content:'◇';color:var(--brand);margin-right:6px; }
+  .annot ul { margin:0;padding-left:16px; }
+  .annot li { margin-bottom:2px; }
+  .annot .k { color:#C9C2FF; }
+  .annot .b { color:var(--brand); }
+</style>
+</head>
+<body>
+
+<!-- TOP BAR -->
+<div class="topbar">
+  <div class="logo">
+    <div class="logo-mark">L</div>
+    <div class="logo-text">Panorama<span class="sub">/ Lista DAO</span></div>
+  </div>
+  <div class="status-pill">
+    <span class="dot"></span>
+    <span>Block #47892374</span>
+    <span style="color: var(--text-3);">·</span>
+    <span>Last sync 2h ago</span>
+  </div>
+  <div class="top-spacer"></div>
+  <div class="search">
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
+    <span>搜索业务 / 合约 / Cron / API …</span>
+    <span class="kbd">⌘K</span>
+  </div>
+  <div class="topbar-actions">
+    <button class="icon-btn" title="Rebuild">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12a9 9 0 1 1-9-9c2.5 0 4.8 1 6.5 2.6L21 8"/><path d="M21 3v5h-5"/></svg>
+    </button>
+    <button class="icon-btn" title="Settings">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+    </button>
+    <div class="avatar">S</div>
+  </div>
+</div>
+
+<!-- MAIN -->
+<div class="main">
+  <aside class="sidebar">
+    <div class="sidebar-head">业务树</div>
+    <div class="tree">
+      <div class="tree-row"><span class="tree-arrow">▼</span><span class="tree-name">Lista DAO</span></div>
+      <div style="padding-left:14px;">
+        <div class="tree-row"><span class="tree-arrow">▼</span><span class="tree-name" style="font-weight:500;">Moolah</span><span class="tree-count">11</span></div>
+        <div style="padding-left:14px;">
+          <div class="tree-row"><span class="tree-arrow">▶</span><span class="tree-name">Supply &amp; Borrow</span></div>
+          <div class="tree-row active"><span class="tree-arrow">▼</span><span class="tree-name">Emission</span><span class="tree-count">17</span></div>
+          <div style="padding-left:14px;">
+            <div class="tree-row" style="font-size:12px;padding:5px 10px;"><span class="tree-arrow">▶</span><span class="ttag ui">UI</span><span class="tree-name">Routes</span><span class="tree-count">2</span></div>
+            <div class="tree-row" style="font-size:12px;padding:5px 10px;"><span class="tree-arrow">▶</span><span class="ttag api">API</span><span class="tree-name">Endpoints</span><span class="tree-count">3</span></div>
+            <div class="tree-row" style="font-size:12px;padding:5px 10px;"><span class="tree-arrow">▶</span><span class="ttag cron">CRO</span><span class="tree-name">Cron Jobs</span><span class="tree-count">5</span></div>
+            <div class="tree-row" style="font-size:12px;padding:5px 10px;"><span class="tree-arrow">▼</span><span class="ttag con">SOL</span><span class="tree-name">Contracts</span><span class="tree-count">4</span></div>
+            <div class="tree-leaf active"><span class="dot"></span>MerkleDistributor</div>
+            <div class="tree-leaf"><span class="dot"></span>RewardRouter ×4</div>
+            <div class="tree-leaf"><span class="dot"></span>LendingEmissionV2</div>
+            <div class="tree-row" style="font-size:12px;padding:5px 10px;"><span class="tree-arrow">▶</span><span class="ttag db">DB</span><span class="tree-name">Tables</span><span class="tree-count">2</span></div>
+            <div class="tree-row" style="font-size:12px;padding:5px 10px;"><span class="tree-arrow">▶</span><span class="ttag rds">RDS</span><span class="tree-name">Redis</span><span class="tree-count">3</span></div>
+          </div>
+          <div class="tree-row"><span class="tree-arrow">▶</span><span class="tree-name">Liquidation</span></div>
+          <div class="tree-row"><span class="tree-arrow">▶</span><span class="tree-name">Vault</span></div>
+        </div>
+        <div class="tree-row"><span class="tree-arrow">▶</span><span class="tree-name">Staking</span><span class="tree-count">5</span></div>
+        <div class="tree-row"><span class="tree-arrow">▶</span><span class="tree-name">CDP</span><span class="tree-count">3</span></div>
+        <div class="tree-row"><span class="tree-arrow">▶</span><span class="tree-name">Governance</span><span class="tree-count">6</span></div>
+        <div class="tree-row"><span class="tree-arrow">▶</span><span class="tree-name">Revenue</span></div>
+        <div class="tree-row"><span class="tree-arrow">▶</span><span class="tree-name">Credit</span></div>
+        <div class="tree-row"><span class="tree-arrow">▶</span><span class="tree-name">RWA</span></div>
+        <div class="tree-row"><span class="tree-arrow">▶</span><span class="tree-name">Infrastructure</span></div>
+      </div>
+    </div>
+  </aside>
+
+  <main class="content">
+    <div class="content-pad">
+      <div class="crumb">
+        <span class="crumb-back">←</span>
+        <span>Lista DAO</span><span class="crumb-sep">/</span>
+        <span>Moolah</span><span class="crumb-sep">/</span>
+        <span class="crumb-current">Emission</span>
+      </div>
+
+      <div class="hero">
+        <div class="hero-info">
+          <h1>Moolah Emission Rewards</h1>
+          <p class="hero-desc">通过 MerkleDistributor 周期性发放 lisUSD/LISTA 奖励给 Supply / Borrow / LP / Rockaway 用户。Cron 每周三计算 merkle root，setMerkleRoot 后用户可在前端 claim。</p>
+          <div class="hero-tags">
+            <span class="htag">emission</span>
+            <span class="htag">merkle</span>
+            <span class="htag">claim</span>
+            <span class="htag">distributor</span>
+          </div>
+        </div>
+        <div class="hero-meta">
+          <div class="verified">最近验证 <strong>2026-04-30</strong></div>
+          <div>来源 <strong>lista-bot PR#456</strong></div>
+          <div>实现节点 <strong>17</strong> / 调用方 <strong>9</strong></div>
+        </div>
+      </div>
+
+      <div class="stats">
+        <div class="stat"><div class="stat-icon cron">⏱</div><div class="stat-info"><div class="stat-label">Cron Jobs</div><div class="stat-value">5</div></div></div>
+        <div class="stat"><div class="stat-icon con">◆</div><div class="stat-info"><div class="stat-label">Contracts</div><div class="stat-value">4</div></div></div>
+        <div class="stat"><div class="stat-icon api">◐</div><div class="stat-info"><div class="stat-label">API Endpoints</div><div class="stat-value">3</div></div></div>
+        <div class="stat"><div class="stat-icon storage">▤</div><div class="stat-info"><div class="stat-label">Storage Keys</div><div class="stat-value">5</div></div></div>
+      </div>
+
+      <div class="sec-head">
+        <div class="sec-title">业务流程图</div>
+        <div class="sec-tools">
+          <button>展开全部</button>
+          <button>仅高频路径</button>
+          <button class="active">Auto layout</button>
+        </div>
+      </div>
+
+      <!-- ============= FLOW v6: 1080×700 strict grid ============= -->
+      <div class="flow-wrap">
+      <div class="flow has-selected">
+
+        <div class="lane-bg ui"></div>
+        <div class="lane-bg api"></div>
+        <div class="lane-bg cron"></div>
+        <div class="lane-bg con"></div>
+        <div class="lane-bg db"></div>
+        <div class="lane-bg redis"></div>
+
+        <div class="lane ui"><span class="lane-bar"></span>UI</div>
+        <div class="lane api"><span class="lane-bar"></span>API</div>
+        <div class="lane cron"><span class="lane-bar"></span>CRON</div>
+        <div class="lane con"><span class="lane-bar"></span>CONTRACT</div>
+        <div class="lane db"><span class="lane-bar"></span>DB</div>
+        <div class="lane redis"><span class="lane-bar"></span>REDIS</div>
+
+        <div class="flow-overlay legend">
+          <div class="legend-item"><span class="legend-dot" style="background:#5BC0DE;"></span>UI</div>
+          <div class="legend-item"><span class="legend-dot" style="background:#5DE090;"></span>API</div>
+          <div class="legend-item"><span class="legend-dot" style="background:#FFB840;"></span>Cron</div>
+          <div class="legend-item"><span class="legend-dot" style="background:#F87171;"></span>Contract</div>
+          <div class="legend-item"><span class="legend-dot" style="background:#B19DFF;"></span>DB</div>
+          <div class="legend-item"><span class="legend-dot" style="background:#F58BC2;"></span>Redis</div>
+        </div>
+
+        <div class="flow-overlay flow-tools">
+          <button title="放大">＋</button>
+          <button title="缩小">－</button>
+          <button title="适配">⊡</button>
+          <button title="重置">⌂</button>
+        </div>
+
+        <div class="flow-overlay flow-status">
+          <span><span class="num">13</span> nodes</span>
+          <span style="color: var(--text-3);">·</span>
+          <span><span class="num">8</span> edges</span>
+          <span style="color: var(--text-3);">·</span>
+          <span>Selected: <span class="num" style="color:#C9C2FF;">MerkleDistributor</span></span>
+        </div>
+
+        <div class="flow-overlay minimap">
+          <div class="minimap-inner">
+            <div class="mn" style="top:5%;left:13%;width:18%;background:#5BC0DE;"></div>
+            <div class="mn" style="top:18%;left:13%;width:18%;background:#5DE090;"></div>
+            <div class="mn" style="top:18%;left:41%;width:18%;background:#5DE090;"></div>
+            <div class="mn" style="top:33%;left:13%;width:18%;background:#FFB840;height:8%;"></div>
+            <div class="mn" style="top:33%;left:41%;width:18%;background:#FFB840;height:8%;"></div>
+            <div class="mn" style="top:33%;left:69%;width:18%;background:#FFB840;height:8%;"></div>
+            <div class="mn" style="top:51%;left:13%;width:18%;background:#8378FF;height:8%;border:1px solid #DDD7FF;"></div>
+            <div class="mn" style="top:51%;left:41%;width:18%;background:#F87171;height:8%;"></div>
+            <div class="mn" style="top:51%;left:69%;width:18%;background:#F87171;height:8%;"></div>
+            <div class="mn" style="top:70%;left:24%;width:18%;background:#B19DFF;"></div>
+            <div class="mn" style="top:70%;left:52%;width:18%;background:#B19DFF;"></div>
+            <div class="mn" style="top:85%;left:22%;width:22%;background:#F58BC2;"></div>
+            <div class="mn" style="top:85%;left:50%;width:22%;background:#F58BC2;"></div>
+            <div class="minimap-vp"></div>
+          </div>
+        </div>
+
+        <!-- ============= EDGES (precise routing) ============= -->
+        <!--
+          Lane Y positions (top → bottom):
+          UI       30 → 90  (h=60)
+          API      120 → 180 (h=60)
+          CRON     230 → 310 (h=80)  with subtitle
+          CONTRACT 360 → 440 (h=80)
+          DB       490 → 548 (h=58)
+          REDIS    598 → 656 (h=58)
+
+          Columns: 240 / 540 / 840
+          DB/REDIS offset cols: 360 / 660
+          Contract vertical center = (360+440)/2 = 400
+          MerkleDistributor LEFT side = (140, 400)
+        -->
+        <svg style="position:absolute;inset:0;width:100%;height:100%;pointer-events:none;z-index:5;" viewBox="0 0 1080 700" preserveAspectRatio="none">
+          <defs>
+            <linearGradient id="g-purple" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0%" stop-color="#8378FF" stop-opacity="0.5"/>
+              <stop offset="100%" stop-color="#8378FF" stop-opacity="1"/>
+            </linearGradient>
+            <linearGradient id="g-purple-h" x1="0" y1="0" x2="1" y2="0">
+              <stop offset="0%" stop-color="#8378FF" stop-opacity="0.5"/>
+              <stop offset="100%" stop-color="#8378FF" stop-opacity="1"/>
+            </linearGradient>
+            <marker id="ar"   markerWidth="7" markerHeight="7" refX="6.5" refY="3.5" orient="auto"><path d="M0 0 L7 3.5 L0 7 z" fill="#7A7D8F"/></marker>
+            <marker id="ar-p" markerWidth="8" markerHeight="8" refX="7.5" refY="4"   orient="auto"><path d="M0 0 L8 4 L0 8 z"   fill="#8378FF"/></marker>
+            <marker id="ar-d" markerWidth="7" markerHeight="7" refX="6.5" refY="3.5" orient="auto"><path d="M0 0 L7 3.5 L0 7 z" fill="#5C5F7C"/></marker>
+          </defs>
+
+          <!-- E1: UI(240,90) → API(240,120) -->
+          <path d="M 240 90 L 240 120" stroke="#7A7D8F" stroke-width="1.5" fill="none" marker-end="url(#ar)" stroke-linecap="round"/>
+
+          <!-- E2: API(240,180) → MerkleDistributor LEFT(140, 400) [BYPASS LEFT, enters from LEFT side] -->
+          <g>
+            <path d="M 240 180 L 130 180 Q 110 180 110 200 L 110 380 Q 110 400 130 400 L 140 400"
+                  stroke="url(#g-purple-h)" stroke-width="2.2" fill="none"
+                  marker-end="url(#ar-p)" stroke-linejoin="round"/>
+            <path d="M 240 180 L 130 180 Q 110 180 110 200 L 110 380 Q 110 400 130 400 L 140 400"
+                  stroke="#C9C2FF" stroke-width="2.2" fill="none"
+                  stroke-linejoin="round" class="e-flow" opacity="0.45"/>
+          </g>
+
+          <!-- E3: API admin(540,180) → CRON moolah(240,230) [DASHED] -->
+          <path d="M 540 180 L 540 195 Q 540 205 530 205 L 250 205 Q 240 205 240 215 L 240 230"
+                stroke="#5C5F7C" stroke-width="1.5" stroke-dasharray="4 3" fill="none"
+                marker-end="url(#ar-d)" stroke-linejoin="round"/>
+
+          <!-- E4: CRON moolah(240,310) → MerkleDistributor TOP(240,360) [HIGHLIGHT vertical] -->
+          <g>
+            <path d="M 240 310 L 240 360" stroke="url(#g-purple)" stroke-width="2.2" fill="none" marker-end="url(#ar-p)"/>
+            <path d="M 240 310 L 240 360" stroke="#C9C2FF" stroke-width="2.2" fill="none" class="e-flow" opacity="0.45"/>
+          </g>
+
+          <!-- E5: CRON autoClaim(540,310) → RewardRouter(540,360) -->
+          <path d="M 540 310 L 540 360" stroke="#7A7D8F" stroke-width="1.5" fill="none" marker-end="url(#ar)" stroke-linecap="round"/>
+
+          <!-- E6: CRON transfer(840,310) → LendingEmissionV2(840,360) -->
+          <path d="M 840 310 L 840 360" stroke="#7A7D8F" stroke-width="1.5" fill="none" marker-end="url(#ar)" stroke-linecap="round"/>
+
+          <!-- E7: CRON moolah(240,310) → DB merkle_root_log(360, 490) -->
+          <path d="M 240 310 L 240 322 Q 240 332 250 332 L 350 332 Q 360 332 360 342 L 360 490"
+                stroke="#7A7D8F" stroke-width="1.5" fill="none" marker-end="url(#ar)"
+                stroke-linejoin="round" opacity="0.85"/>
+
+          <!-- E8: CRON autoClaim(540,310) → DB emission_reward_log(660, 490) -->
+          <path d="M 540 310 L 540 322 Q 540 332 550 332 L 650 332 Q 660 332 660 342 L 660 490"
+                stroke="#7A7D8F" stroke-width="1.5" fill="none" marker-end="url(#ar)"
+                stroke-linejoin="round" opacity="0.85"/>
+        </svg>
+
+        <!-- Edge labels — positioned in clean gaps, no overlap -->
+        <!-- E3: in API-CRON gap, centered on horizontal segment -->
+        <div class="edge-label italic" style="left:354px;top:198px;">callCronApi</div>
+        <!-- E4/E5/E6: in CRON-CONTRACT gap (310-360 = 50px), label height 17, top=326 -->
+        <div class="edge-label highlight" style="left:250px;top:326px;">setMerkleRoot</div>
+        <div class="edge-label" style="left:550px;top:326px;">claim</div>
+        <div class="edge-label" style="left:850px;top:326px;">transferReward</div>
+        <!-- E2: small "read" tag at the entry point -->
+        <div class="edge-label highlight" style="left:60px;top:295px;">read</div>
+
+        <!-- ============= NODES (strict 3-column, fits content) ============= -->
+        <!-- Column 1 centerX = 240 (left = 140, w = 200) -->
+        <!-- Column 2 centerX = 540 (left = 440) -->
+        <!-- Column 3 centerX = 840 (left = 740) -->
+
+        <!-- UI: top=30, h=60 -->
+        <div class="node related" data-type="ui" style="left:140px;top:30px;width:200px;height:60px;">
+          <div class="node-head">
+            <span class="node-tag">UI</span>
+            <span class="node-meta">RewardsPage</span>
+            <span class="node-status"></span>
+          </div>
+          <div class="node-body">
+            <div class="node-name">/dashboard/rewards</div>
+          </div>
+        </div>
+
+        <!-- API row: top=120, h=60 -->
+        <div class="node related" data-type="api" style="left:140px;top:120px;width:200px;height:60px;">
+          <div class="node-head">
+            <span class="node-tag">GET</span>
+            <span class="node-meta">lista-admin</span>
+            <span class="node-status"></span>
+          </div>
+          <div class="node-body">
+            <div class="node-name" title="/api/moolah/rewards/claimable">/api/moolah/rewards/claimable</div>
+          </div>
+        </div>
+
+        <div class="node" data-type="api" style="left:440px;top:120px;width:200px;height:60px;">
+          <div class="node-head">
+            <span class="node-tag">POST</span>
+            <span class="node-meta">lista-admin</span>
+            <span class="node-status"></span>
+          </div>
+          <div class="node-body">
+            <div class="node-name">/api/admin/emission/sync</div>
+          </div>
+        </div>
+
+        <!-- CRON row: top=230, h=80 -->
+        <div class="node related" data-type="cron" style="left:140px;top:230px;width:200px;height:80px;">
+          <div class="node-head">
+            <span class="node-tag">CRON</span>
+            <span class="node-meta">XJOB 50007</span>
+            <span class="node-status"></span>
+          </div>
+          <div class="node-body">
+            <div class="node-name">moolahEmissionTask</div>
+            <div class="node-sub">同步 merkle root（每周三）</div>
+          </div>
+        </div>
+
+        <div class="node" data-type="cron" style="left:440px;top:230px;width:200px;height:80px;">
+          <div class="node-head">
+            <span class="node-tag">CRON</span>
+            <span class="node-meta">XJOB 50008</span>
+            <span class="node-status"></span>
+          </div>
+          <div class="node-body">
+            <div class="node-name">autoClaimForPartners</div>
+            <div class="node-sub">代领 partner 奖励（每周四）</div>
+          </div>
+        </div>
+
+        <div class="node" data-type="cron" style="left:740px;top:230px;width:200px;height:80px;">
+          <div class="node-head">
+            <span class="node-tag">CRON</span>
+            <span class="node-meta">XJOB 50011-13</span>
+            <span class="node-status warn" title="Inferred"></span>
+          </div>
+          <div class="node-body">
+            <div class="node-name">processRewardsTransfer</div>
+            <div class="node-sub">分批转 reward token</div>
+          </div>
+        </div>
+
+        <!-- CONTRACT row: top=360, h=80 -->
+        <div class="node selected" data-type="contract" style="left:140px;top:360px;width:200px;height:80px;">
+          <span class="handle top"></span>
+          <span class="handle left"></span>
+          <span class="handle bottom"></span>
+          <div class="node-head">
+            <span class="node-tag">SOL</span>
+            <span class="node-meta">BSC Verified</span>
+            <div class="ico-group">
+              <a class="ico" title="Mainnet">🌐</a>
+              <a class="ico" title="Testnet">🧪</a>
+              <a class="ico" title="ABI">≡</a>
+            </div>
+          </div>
+          <div class="node-body">
+            <div class="node-name">MerkleDistributor</div>
+            <div class="node-sub mono">0x6Bd0···A3f4 · 3 callers</div>
+          </div>
+        </div>
+
+        <div class="node" data-type="contract" style="left:440px;top:360px;width:200px;height:80px;">
+          <div class="node-head">
+            <span class="node-tag">SOL</span>
+            <span class="node-meta">×4 instances</span>
+            <div class="ico-group">
+              <a class="ico" title="Mainnet">🌐</a>
+              <a class="ico" title="Testnet">🧪</a>
+            </div>
+          </div>
+          <div class="node-body">
+            <div class="node-name">RewardRouter</div>
+            <div class="node-sub">Supply / LP / Borrow / Rockaway</div>
+          </div>
+        </div>
+
+        <div class="node" data-type="contract" style="left:740px;top:360px;width:200px;height:80px;">
+          <div class="node-head">
+            <span class="node-tag">SOL</span>
+            <span class="node-meta">BSC Mainnet</span>
+            <div class="ico-group">
+              <a class="ico" title="Mainnet">🌐</a>
+              <a class="ico" title="Testnet">🧪</a>
+            </div>
+          </div>
+          <div class="node-body">
+            <div class="node-name">LendingEmissionV2</div>
+            <div class="node-sub mono">0x4F1d···8eA2</div>
+          </div>
+        </div>
+
+        <!-- DB row: top=490, h=58 -->
+        <div class="node" data-type="db" style="left:260px;top:490px;width:200px;height:58px;">
+          <div class="node-head">
+            <span class="node-tag">DB</span>
+            <span class="node-meta">MySQL</span>
+            <span class="node-status"></span>
+          </div>
+          <div class="node-body">
+            <div class="node-name">merkle_root_log</div>
+          </div>
+        </div>
+
+        <div class="node" data-type="db" style="left:560px;top:490px;width:200px;height:58px;">
+          <div class="node-head">
+            <span class="node-tag">DB</span>
+            <span class="node-meta">MySQL</span>
+            <span class="node-status"></span>
+          </div>
+          <div class="node-body">
+            <div class="node-name">emission_reward_log</div>
+          </div>
+        </div>
+
+        <!-- REDIS row: top=598, h=58 -->
+        <div class="node" data-type="redis" style="left:240px;top:598px;width:240px;height:58px;">
+          <div class="node-head">
+            <span class="node-tag">RDS</span>
+            <span class="node-meta">String · TTL 1d</span>
+            <span class="node-status"></span>
+          </div>
+          <div class="node-body">
+            <div class="node-name">moolah:emission:pending_root</div>
+          </div>
+        </div>
+
+        <div class="node" data-type="redis" style="left:540px;top:598px;width:240px;height:58px;">
+          <div class="node-head">
+            <span class="node-tag">RDS</span>
+            <span class="node-meta">Hash · TTL 7d</span>
+            <span class="node-status"></span>
+          </div>
+          <div class="node-body">
+            <div class="node-name">moolah:claim_status:{addr}</div>
+          </div>
+        </div>
+
+        <div class="drawer-tab" title="打开节点详情">
+          <span class="arrow">‹</span>
+          <span class="v-text">详情</span>
+        </div>
+
+      </div>
+      </div>
+
+    </div>
+  </main>
+</div>
+
+<div class="annot">
+  <div class="ttl">v6 · 修复连线与遮挡</div>
+  <ul>
+    <li>节点用 flex 布局，<span class="k">name 自动 ellipsis</span> 不再硬切</li>
+    <li>CRON / CONTRACT 高度 80px，副标题完整显示</li>
+    <li>CONTRACT header 去掉 status 圆点（meta 已显"Verified"）</li>
+    <li>API → MerkleDistributor 的 bypass 边从 <span class="k">左侧进入</span> 合约（不再撞顶部箭头）</li>
+    <li>合约现有 <span class="k">3 个连接点</span>：top（CRON 来）、left（API 来）、bottom（下游）</li>
+    <li>所有 edge label 在严格 50px 间隙中，<span class="b">不压节点</span></li>
+    <li>"isClaimed" 改为简洁的 "read" 小标，靠 bypass 边右侧</li>
+  </ul>
+</div>
+
+</body>
+</html>

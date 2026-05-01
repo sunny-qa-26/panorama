@@ -1,0 +1,781 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<title>Panorama UI Mockup</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<style>
+  body { font-family: -apple-system, "Segoe UI", "PingFang SC", sans-serif; }
+  .tree-item { cursor: pointer; user-select: none; }
+  .tree-item:hover { background: #1e293b40; }
+  .tree-active { background: #3b82f640 !important; border-left: 3px solid #3b82f6; }
+  .flow-node { cursor: pointer; transition: all .15s; }
+  .flow-node:hover { filter: brightness(1.15); transform: translateY(-1px); }
+  .drawer-panel { animation: drawerIn .28s cubic-bezier(0.32, 0.72, 0, 1); }
+  @keyframes drawerIn { from { transform: translateX(40px); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
+  .drawer-backdrop { animation: fadeIn .25s ease-out; }
+  @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+  .drawer-toggle { display: none; }
+  .drawer-toggle:checked ~ .drawer-backdrop, .drawer-toggle:checked ~ .drawer-panel { display: block; }
+  .tab-active { color: #3b82f6; border-bottom: 2px solid #3b82f6; }
+  .badge { padding: 2px 8px; border-radius: 4px; font-size: 11px; font-weight: 500; line-height: 1.2; }
+  .badge-ui { background: #06b6d420; color: #67e8f9; }
+  .badge-api { background: #10b98120; color: #6ee7b7; }
+  .badge-cron { background: #f59e0b20; color: #fcd34d; }
+  .badge-contract { background: #ef444420; color: #fca5a5; }
+  .badge-db { background: #8b5cf620; color: #c4b5fd; }
+  .badge-redis { background: #ec489920; color: #f9a8d4; }
+  .scroll-hide::-webkit-scrollbar { display: none; }
+  .scroll-hide { scrollbar-width: none; }
+  .icon-btn { width: 18px; height: 18px; display: inline-flex; align-items: center; justify-content: center; border-radius: 3px; font-size: 10px; }
+  .icon-btn:hover { background: rgba(255,255,255,0.1); }
+</style>
+</head>
+<body class="bg-slate-950 text-slate-100 h-screen overflow-hidden">
+
+<!-- Top Bar -->
+<div class="h-12 border-b border-slate-800 bg-slate-900 flex items-center px-4 gap-4">
+  <div class="flex items-center gap-2 font-semibold">
+    <span class="text-lg">🌐</span>
+    <span>Panorama</span>
+    <span class="text-xs text-slate-500 font-normal">Lista DAO 业务全景图</span>
+  </div>
+  <div class="flex-1 max-w-lg">
+    <div class="flex items-center bg-slate-800 rounded px-3 py-1.5 text-sm text-slate-400">
+      <span class="mr-2">🔍</span>
+      <span class="flex-1">搜索业务 / UI / API / Cron / 合约 / DB / Redis</span>
+      <kbd class="text-xs bg-slate-700 px-1.5 py-0.5 rounded">⌘K</kbd>
+    </div>
+  </div>
+  <div class="flex-1"></div>
+  <div class="text-xs text-slate-500">Last build: 2h ago</div>
+  <button class="text-xs bg-slate-800 hover:bg-slate-700 px-3 py-1.5 rounded">⟳ Rebuild</button>
+  <div class="w-7 h-7 rounded-full bg-blue-500 flex items-center justify-center text-xs font-medium">S</div>
+</div>
+
+<!-- Three-pane Layout -->
+<div class="flex" style="height: calc(100vh - 48px);">
+
+  <!-- Left: Tree -->
+  <div class="w-72 border-r border-slate-800 bg-slate-900 overflow-y-auto scroll-hide flex-shrink-0">
+    <div class="px-3 py-2 text-xs font-semibold text-slate-500 uppercase tracking-wider">业务树</div>
+
+    <div class="text-sm">
+      <div class="tree-item flex items-center px-3 py-1.5">
+        <span class="w-4 text-xs text-slate-500">▼</span>
+        <span class="font-medium">Lista DAO</span>
+      </div>
+
+      <div class="ml-3">
+        <div class="tree-item flex items-center px-3 py-1.5">
+          <span class="w-4 text-xs text-slate-500">▼</span>
+          <span class="mr-2">📦</span>
+          <span class="font-medium">Moolah</span>
+          <span class="ml-auto text-xs text-slate-500">11</span>
+        </div>
+
+        <div class="ml-3">
+          <div class="tree-item flex items-center px-3 py-1.5">
+            <span class="w-4 text-xs text-slate-500">▶</span>
+            <span class="mr-2">📄</span>
+            <span>Supply &amp; Borrow</span>
+          </div>
+
+          <div class="tree-item tree-active flex items-center px-3 py-1.5">
+            <span class="w-4 text-xs text-slate-300">▼</span>
+            <span class="mr-2">📄</span>
+            <span class="font-medium">Emission</span>
+            <span class="ml-auto text-xs text-slate-400">17</span>
+          </div>
+          <div class="ml-3 text-xs">
+            <div class="tree-item flex items-center px-3 py-1">
+              <span class="w-4 text-slate-500">▶</span>
+              <span class="badge badge-ui mr-2">UI</span>
+              <span class="text-slate-300">Routes</span>
+              <span class="ml-auto text-slate-500">2</span>
+            </div>
+            <div class="tree-item flex items-center px-3 py-1">
+              <span class="w-4 text-slate-500">▶</span>
+              <span class="badge badge-api mr-2">API</span>
+              <span class="text-slate-300">Endpoints</span>
+              <span class="ml-auto text-slate-500">3</span>
+            </div>
+            <div class="tree-item flex items-center px-3 py-1">
+              <span class="w-4 text-slate-500">▶</span>
+              <span class="badge badge-cron mr-2">CRON</span>
+              <span class="text-slate-300">Cron Jobs</span>
+              <span class="ml-auto text-slate-500">5</span>
+            </div>
+            <div class="tree-item flex items-center px-3 py-1">
+              <span class="w-4 text-slate-500">▼</span>
+              <span class="badge badge-contract mr-2">SOL</span>
+              <span class="text-slate-300 font-medium">Contracts</span>
+              <span class="ml-auto text-slate-500">4</span>
+            </div>
+            <div class="ml-5">
+              <div class="tree-item tree-active flex items-center px-2 py-1 text-[11px]">
+                <span class="text-red-400 mr-1.5">●</span>
+                <span class="font-mono">MerkleDistributor</span>
+              </div>
+              <div class="tree-item flex items-center px-2 py-1 text-[11px]">
+                <span class="text-red-400 mr-1.5">●</span>
+                <span class="font-mono">RewardRouter</span>
+                <span class="ml-1 text-slate-500">×4</span>
+              </div>
+              <div class="tree-item flex items-center px-2 py-1 text-[11px]">
+                <span class="text-red-400 mr-1.5">●</span>
+                <span class="font-mono">LendingEmissionV2</span>
+              </div>
+            </div>
+            <div class="tree-item flex items-center px-3 py-1">
+              <span class="w-4 text-slate-500">▶</span>
+              <span class="badge badge-db mr-2">DB</span>
+              <span class="text-slate-300">Tables</span>
+              <span class="ml-auto text-slate-500">2</span>
+            </div>
+            <div class="tree-item flex items-center px-3 py-1">
+              <span class="w-4 text-slate-500">▶</span>
+              <span class="badge badge-redis mr-2">RDS</span>
+              <span class="text-slate-300">Redis Keys</span>
+              <span class="ml-auto text-slate-500">3</span>
+            </div>
+          </div>
+
+          <div class="tree-item flex items-center px-3 py-1.5">
+            <span class="w-4 text-xs text-slate-500">▶</span>
+            <span class="mr-2">📄</span>
+            <span>Liquidation</span>
+          </div>
+          <div class="tree-item flex items-center px-3 py-1.5">
+            <span class="w-4 text-xs text-slate-500">▶</span>
+            <span class="mr-2">📄</span>
+            <span>Vault</span>
+          </div>
+        </div>
+
+        <div class="tree-item flex items-center px-3 py-1.5">
+          <span class="w-4 text-xs text-slate-500">▶</span>
+          <span class="mr-2">📦</span>
+          <span>Staking</span>
+          <span class="ml-auto text-xs text-slate-500">5</span>
+        </div>
+        <div class="tree-item flex items-center px-3 py-1.5">
+          <span class="w-4 text-xs text-slate-500">▶</span>
+          <span class="mr-2">📦</span>
+          <span>CDP</span>
+          <span class="ml-auto text-xs text-slate-500">3</span>
+        </div>
+        <div class="tree-item flex items-center px-3 py-1.5">
+          <span class="w-4 text-xs text-slate-500">▶</span>
+          <span class="mr-2">📦</span>
+          <span>Governance</span>
+          <span class="ml-auto text-xs text-slate-500">6</span>
+        </div>
+        <div class="tree-item flex items-center px-3 py-1.5">
+          <span class="w-4 text-xs text-slate-500">▶</span>
+          <span class="mr-2">📦</span>
+          <span>Revenue</span>
+        </div>
+        <div class="tree-item flex items-center px-3 py-1.5">
+          <span class="w-4 text-xs text-slate-500">▶</span>
+          <span class="mr-2">📦</span>
+          <span>Credit</span>
+        </div>
+        <div class="tree-item flex items-center px-3 py-1.5">
+          <span class="w-4 text-xs text-slate-500">▶</span>
+          <span class="mr-2">📦</span>
+          <span>RWA</span>
+        </div>
+        <div class="tree-item flex items-center px-3 py-1.5">
+          <span class="w-4 text-xs text-slate-500">▶</span>
+          <span class="mr-2">📦</span>
+          <span>Infrastructure</span>
+        </div>
+        <div class="tree-item flex items-center px-3 py-1.5">
+          <span class="w-4 text-xs text-slate-500">▶</span>
+          <span class="mr-2">📦</span>
+          <span>Operations</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Middle: Content + Drawer overlay -->
+  <div class="flex-1 relative overflow-hidden bg-slate-950 min-w-0">
+
+    <!-- Scrollable content (full width when drawer closed) -->
+    <div class="absolute inset-0 overflow-y-auto scroll-hide">
+
+    <!-- Breadcrumb -->
+    <div class="px-6 py-3 border-b border-slate-800 flex items-center text-sm">
+      <span class="text-slate-500">Lista DAO</span>
+      <span class="mx-2 text-slate-700">/</span>
+      <span class="text-slate-500">Moolah</span>
+      <span class="mx-2 text-slate-700">/</span>
+      <span class="font-medium">Emission</span>
+      <div class="ml-auto flex gap-2">
+        <button class="text-xs px-2 py-1 bg-slate-800 rounded hover:bg-slate-700">📋 复制链接</button>
+        <button class="text-xs px-2 py-1 bg-slate-800 rounded hover:bg-slate-700">📖 lista-knowledge</button>
+      </div>
+    </div>
+
+    <!-- Concept card -->
+    <div class="px-6 py-4 border-b border-slate-800">
+      <div class="flex items-start gap-4">
+        <div class="flex-1">
+          <h1 class="text-xl font-semibold mb-1">Moolah Emission Rewards</h1>
+          <p class="text-sm text-slate-400">通过 MerkleDistributor 周期性发放 lisUSD/LISTA 奖励给 Supply / Borrow / LP / Rockaway 用户。</p>
+        </div>
+        <div class="text-xs text-slate-500 text-right">
+          <div>last_verified: <span class="text-emerald-400">2026-04-30</span></div>
+          <div>verified_against: lista-bot PR#456</div>
+        </div>
+      </div>
+      <div class="flex gap-2 mt-3">
+        <span class="badge badge-cron">emission</span>
+        <span class="badge badge-cron">merkle</span>
+        <span class="badge badge-cron">claim</span>
+        <span class="badge badge-cron">distributor</span>
+      </div>
+    </div>
+
+    <!-- Flow Diagram (React Flow style: HTML divs + SVG edges) -->
+    <div class="px-6 py-4 border-b border-slate-800">
+      <div class="flex items-center justify-between mb-3">
+        <h2 class="text-sm font-semibold flex items-center gap-2">
+          <span>📊</span>
+          <span>业务流程图</span>
+          <span class="text-xs font-normal text-slate-500">React Flow + dagre auto-layout</span>
+        </h2>
+        <div class="flex gap-1 text-xs">
+          <button class="px-2 py-1 bg-slate-800 rounded hover:bg-slate-700">展开全部</button>
+          <button class="px-2 py-1 bg-slate-800 rounded hover:bg-slate-700">仅高频路径</button>
+          <button class="px-2 py-1 bg-blue-600 rounded">Auto layout</button>
+        </div>
+      </div>
+
+      <div class="rounded-xl border border-slate-800/80 relative overflow-hidden mx-auto" style="height: 640px; max-width: 920px; background: radial-gradient(ellipse at top left, rgba(59, 130, 246, 0.04) 0%, rgba(15, 23, 42, 0) 60%), linear-gradient(180deg, #0f172a 0%, #020617 100%);">
+
+        <!-- Toolbar -->
+        <div class="absolute top-3 right-3 z-20 flex flex-col bg-slate-900/80 backdrop-blur border border-slate-700/50 rounded-md shadow-xl overflow-hidden">
+          <button class="w-7 h-7 hover:bg-slate-700/50 text-sm text-slate-400">＋</button>
+          <button class="w-7 h-7 hover:bg-slate-700/50 text-sm text-slate-400 border-t border-slate-700/30">－</button>
+          <button class="w-7 h-7 hover:bg-slate-700/50 text-xs text-slate-400 border-t border-slate-700/30">⊡</button>
+          <button class="w-7 h-7 hover:bg-slate-700/50 text-xs text-slate-400 border-t border-slate-700/30">⌂</button>
+        </div>
+
+        <!-- Refined minimap -->
+        <div class="absolute bottom-3 left-3 z-20 w-28 h-16 bg-slate-950/80 backdrop-blur border border-slate-700/50 rounded p-1">
+          <div class="w-full h-full relative">
+            <div class="absolute" style="top: 4%; left: 14%; width: 18%; height: 7%; background: #06b6d4; border-radius: 1px;"></div>
+            <div class="absolute" style="top: 18%; left: 8%; width: 22%; height: 7%; background: #10b981; border-radius: 1px;"></div>
+            <div class="absolute" style="top: 18%; left: 38%; width: 22%; height: 7%; background: #10b981; border-radius: 1px;"></div>
+            <div class="absolute" style="top: 33%; left: 8%; width: 22%; height: 8%; background: #f59e0b; border-radius: 1px;"></div>
+            <div class="absolute" style="top: 33%; left: 38%; width: 22%; height: 8%; background: #f59e0b; border-radius: 1px;"></div>
+            <div class="absolute" style="top: 33%; left: 70%; width: 22%; height: 8%; background: #f59e0b; opacity: 0.6; border-radius: 1px;"></div>
+            <div class="absolute" style="top: 50%; left: 12%; width: 20%; height: 8%; background: #ef4444; border: 1px solid #3b82f6; border-radius: 1px;"></div>
+            <div class="absolute" style="top: 50%; left: 38%; width: 22%; height: 8%; background: #ef4444; border-radius: 1px;"></div>
+            <div class="absolute" style="top: 50%; left: 70%; width: 22%; height: 8%; background: #ef4444; border-radius: 1px;"></div>
+            <div class="absolute" style="top: 67%; left: 18%; width: 22%; height: 5%; background: #8b5cf6; border-radius: 1px;"></div>
+            <div class="absolute" style="top: 67%; left: 50%; width: 22%; height: 5%; background: #8b5cf6; border-radius: 1px;"></div>
+            <div class="absolute" style="top: 80%; left: 18%; width: 24%; height: 5%; background: #ec4899; border-radius: 1px;"></div>
+            <div class="absolute" style="top: 80%; left: 50%; width: 26%; height: 5%; background: #ec4899; border-radius: 1px;"></div>
+            <div class="absolute border border-blue-400/60 rounded-sm" style="top: 0%; left: 5%; right: 5%; bottom: 12%;"></div>
+          </div>
+        </div>
+
+        <!-- Lane labels (right side, very subtle) -->
+        <div class="absolute right-12 z-10 text-[9px] text-cyan-400/30 font-medium tracking-[0.25em]" style="top: 50px;">UI</div>
+        <div class="absolute right-12 z-10 text-[9px] text-emerald-400/30 font-medium tracking-[0.25em]" style="top: 150px;">API</div>
+        <div class="absolute right-12 z-10 text-[9px] text-amber-400/30 font-medium tracking-[0.25em]" style="top: 254px;">CRON</div>
+        <div class="absolute right-12 z-10 text-[9px] text-red-400/30 font-medium tracking-[0.25em]" style="top: 354px;">CONTRACT</div>
+        <div class="absolute right-12 z-10 text-[9px] text-purple-400/30 font-medium tracking-[0.25em]" style="top: 446px;">DB</div>
+        <div class="absolute right-12 z-10 text-[9px] text-pink-400/30 font-medium tracking-[0.25em]" style="top: 530px;">REDIS</div>
+
+        <!-- SVG edges (smoothstep with rounded corners) -->
+        <svg class="absolute inset-0 w-full h-full pointer-events-none" viewBox="0 0 880 640" preserveAspectRatio="xMidYMid meet">
+          <defs>
+            <marker id="arrow" markerWidth="6" markerHeight="6" refX="5.5" refY="3" orient="auto">
+              <path d="M0 0 L 6 3 L 0 6 z" fill="#475569"/>
+            </marker>
+            <marker id="arrow-blue" markerWidth="6" markerHeight="6" refX="5.5" refY="3" orient="auto">
+              <path d="M0 0 L 6 3 L 0 6 z" fill="#3b82f6"/>
+            </marker>
+            <marker id="arrow-dashed" markerWidth="6" markerHeight="6" refX="5.5" refY="3" orient="auto">
+              <path d="M0 0 L 6 3 L 0 6 z" fill="#334155"/>
+            </marker>
+            <linearGradient id="edge-blue" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0%" stop-color="#3b82f6" stop-opacity="0.4"/>
+              <stop offset="100%" stop-color="#3b82f6" stop-opacity="1"/>
+            </linearGradient>
+          </defs>
+
+          <!-- 所有边用 smoothstep 正交折线，stroke-linejoin=round 让拐角圆滑 -->
+
+          <!-- UI → API (straight vertical) -->
+          <path d="M 180 80 L 180 130" stroke="#475569" stroke-width="1.5" fill="none"
+                marker-end="url(#arrow)" stroke-linecap="round"/>
+
+          <!-- API claimable → MerkleDistributor (BLUE - to selected) -->
+          <path d="M 180 184 L 180 252 Q 180 257 185 257 L 195 257 Q 200 257 200 262 L 200 330"
+                stroke="url(#edge-blue)" stroke-width="2" fill="none"
+                marker-end="url(#arrow-blue)" stroke-linejoin="round"/>
+
+          <!-- API admin/sync → CRON moolahEmissionTask (DASHED - callCronApi) -->
+          <path d="M 480 184 L 480 200 Q 480 207 473 207 L 207 207 Q 200 207 200 214 L 200 230"
+                stroke="#334155" stroke-width="1.5" stroke-dasharray="4 3" fill="none"
+                marker-end="url(#arrow-dashed)" stroke-linejoin="round"/>
+
+          <!-- CRON moolahEmissionTask → MerkleDistributor (BLUE) -->
+          <path d="M 200 290 L 200 330" stroke="url(#edge-blue)" stroke-width="2" fill="none"
+                marker-end="url(#arrow-blue)" stroke-linecap="round"/>
+
+          <!-- CRON autoClaim → RewardRouter -->
+          <path d="M 480 290 L 480 330" stroke="#475569" stroke-width="1.5" fill="none"
+                marker-end="url(#arrow)" stroke-linecap="round"/>
+
+          <!-- CRON transfer → LendingEmission -->
+          <path d="M 720 290 L 720 330" stroke="#475569" stroke-width="1.5" fill="none"
+                marker-end="url(#arrow)" stroke-linecap="round"/>
+
+          <!-- CRON moolahEmissionTask → DB merkle_root_log (smoothstep right-down) -->
+          <path d="M 200 290 L 200 410 Q 200 417 207 417 L 273 417 Q 280 417 280 424 L 280 425"
+                stroke="#475569" stroke-width="1.5" fill="none"
+                marker-end="url(#arrow)" stroke-linejoin="round" opacity="0.7"/>
+
+          <!-- CRON autoClaim → DB emission_reward_log -->
+          <path d="M 480 290 L 480 410 Q 480 417 487 417 L 533 417 Q 540 417 540 424 L 540 425"
+                stroke="#475569" stroke-width="1.5" fill="none"
+                marker-end="url(#arrow)" stroke-linejoin="round" opacity="0.7"/>
+
+          <!-- CRON moolahEmissionTask → REDIS pending_root (longer path) -->
+          <path d="M 220 290 L 220 495 Q 220 502 227 502 L 283 502 Q 290 502 290 509 L 290 510"
+                stroke="#475569" stroke-width="1.5" fill="none"
+                marker-end="url(#arrow)" stroke-linejoin="round" opacity="0.55"/>
+
+          <!-- CRON autoClaim → REDIS claim_status -->
+          <path d="M 500 290 L 500 495 Q 500 502 507 502 L 553 502 Q 560 502 560 509 L 560 510"
+                stroke="#475569" stroke-width="1.5" fill="none"
+                marker-end="url(#arrow)" stroke-linejoin="round" opacity="0.55"/>
+        </svg>
+
+        <!-- Edge labels as small pills positioned at midpoints -->
+        <div class="absolute z-10 text-[9px] font-mono px-1.5 py-0.5 rounded-full bg-blue-500/15 text-blue-300 border border-blue-500/30 pointer-events-none" style="left: 188px; top: 247px;">read</div>
+        <div class="absolute z-10 text-[9px] font-mono px-1.5 py-0.5 rounded-full bg-slate-800/90 text-slate-500 border border-slate-700 italic pointer-events-none" style="left: 305px; top: 198px;">callCronApi</div>
+        <div class="absolute z-10 text-[9px] font-mono px-1.5 py-0.5 rounded-full bg-blue-500/15 text-blue-300 border border-blue-500/30 pointer-events-none" style="left: 208px; top: 305px;">setMerkleRoot</div>
+        <div class="absolute z-10 text-[9px] font-mono px-1.5 py-0.5 rounded-full bg-slate-800/90 text-slate-400 border border-slate-700 pointer-events-none" style="left: 488px; top: 305px;">claim</div>
+        <div class="absolute z-10 text-[9px] font-mono px-1.5 py-0.5 rounded-full bg-slate-800/90 text-slate-400 border border-slate-700 pointer-events-none" style="left: 728px; top: 305px;">transferReward</div>
+
+        <!-- HTML node layer (refined) -->
+
+        <!-- UI -->
+        <div class="absolute z-10 flow-node" style="left: 100px; top: 30px; width: 160px;">
+          <div class="bg-slate-900/80 backdrop-blur border-l-[3px] border-l-cyan-500 border-y border-r border-y-slate-800 border-r-slate-800 rounded-md px-3 py-2 hover:border-y-cyan-500/40 hover:border-r-cyan-500/40 hover:-translate-y-px cursor-pointer transition-all" style="box-shadow: 0 2px 8px -2px rgba(0,0,0,0.4);">
+            <div class="flex items-center gap-1.5 mb-0.5">
+              <span class="badge badge-ui">UI</span>
+              <span class="text-[9px] text-cyan-400/70 uppercase tracking-wide">RewardsPage</span>
+            </div>
+            <div class="font-mono text-[12px] text-cyan-100 truncate">/dashboard/rewards</div>
+          </div>
+        </div>
+
+        <!-- API -->
+        <div class="absolute z-10 flow-node" style="left: 80px; top: 130px; width: 200px;">
+          <div class="bg-slate-900/80 backdrop-blur border-l-[3px] border-l-emerald-500 border-y border-r border-y-slate-800 border-r-slate-800 rounded-md px-3 py-2 hover:border-y-emerald-500/40 hover:border-r-emerald-500/40 hover:-translate-y-px cursor-pointer transition-all" style="box-shadow: 0 2px 8px -2px rgba(0,0,0,0.4);">
+            <div class="flex items-center gap-1.5 mb-0.5">
+              <span class="badge badge-api">GET</span>
+              <span class="text-[9px] text-emerald-400/70 uppercase tracking-wide">lista-admin</span>
+            </div>
+            <div class="font-mono text-[11px] text-emerald-100 truncate">/api/moolah/rewards/claimable</div>
+          </div>
+        </div>
+
+        <div class="absolute z-10 flow-node" style="left: 380px; top: 130px; width: 200px;">
+          <div class="bg-slate-900/80 backdrop-blur border-l-[3px] border-l-emerald-500 border-y border-r border-y-slate-800 border-r-slate-800 rounded-md px-3 py-2 hover:border-y-emerald-500/40 hover:border-r-emerald-500/40 hover:-translate-y-px cursor-pointer transition-all" style="box-shadow: 0 2px 8px -2px rgba(0,0,0,0.4);">
+            <div class="flex items-center gap-1.5 mb-0.5">
+              <span class="badge badge-api">POST</span>
+              <span class="text-[9px] text-emerald-400/70 uppercase tracking-wide">lista-admin</span>
+            </div>
+            <div class="font-mono text-[11px] text-emerald-100 truncate">/api/admin/emission/sync</div>
+          </div>
+        </div>
+
+        <!-- CRON -->
+        <div class="absolute z-10 flow-node" style="left: 100px; top: 230px; width: 200px;">
+          <div class="bg-slate-900/80 backdrop-blur border-l-[3px] border-l-amber-500 border-y border-r border-y-slate-800 border-r-slate-800 rounded-md px-3 py-2 hover:border-y-amber-500/40 hover:border-r-amber-500/40 hover:-translate-y-px cursor-pointer transition-all" style="box-shadow: 0 2px 8px -2px rgba(0,0,0,0.4);">
+            <div class="flex items-center gap-1.5 mb-1">
+              <span class="badge badge-cron">CRON</span>
+              <span class="text-[9px] text-amber-400/70">XxlJob 50007 · 周三</span>
+              <span class="ml-auto text-emerald-400 text-[9px]">●1.0</span>
+            </div>
+            <div class="font-mono text-[12px] font-semibold text-amber-50">moolahEmissionTask</div>
+            <div class="text-[10px] text-slate-500 mt-0.5 truncate">同步 merkle root</div>
+          </div>
+        </div>
+
+        <div class="absolute z-10 flow-node" style="left: 380px; top: 230px; width: 200px;">
+          <div class="bg-slate-900/80 backdrop-blur border-l-[3px] border-l-amber-500 border-y border-r border-y-slate-800 border-r-slate-800 rounded-md px-3 py-2 hover:border-y-amber-500/40 hover:border-r-amber-500/40 hover:-translate-y-px cursor-pointer transition-all" style="box-shadow: 0 2px 8px -2px rgba(0,0,0,0.4);">
+            <div class="flex items-center gap-1.5 mb-1">
+              <span class="badge badge-cron">CRON</span>
+              <span class="text-[9px] text-amber-400/70">XxlJob 50008 · 周四</span>
+              <span class="ml-auto text-emerald-400 text-[9px]">●1.0</span>
+            </div>
+            <div class="font-mono text-[12px] font-semibold text-amber-50">autoClaimForPartners</div>
+            <div class="text-[10px] text-slate-500 mt-0.5 truncate">代领 partner 奖励</div>
+          </div>
+        </div>
+
+        <div class="absolute z-10 flow-node" style="left: 620px; top: 230px; width: 200px;">
+          <div class="bg-slate-900/80 backdrop-blur border-l-[3px] border-l-amber-500/60 border-y border-r border-y-slate-800 border-r-slate-800 rounded-md px-3 py-2 hover:border-y-amber-500/40 hover:border-r-amber-500/40 hover:-translate-y-px cursor-pointer transition-all" style="box-shadow: 0 2px 8px -2px rgba(0,0,0,0.4);">
+            <div class="flex items-center gap-1.5 mb-1">
+              <span class="badge badge-cron">CRON</span>
+              <span class="text-[9px] text-amber-400/70">50011-13</span>
+              <span class="ml-auto text-amber-400 text-[9px]" title="启发式推断">●0.7</span>
+            </div>
+            <div class="font-mono text-[12px] font-semibold text-amber-50">processRewardsTransfer</div>
+            <div class="text-[10px] text-slate-500 mt-0.5 truncate">分批转 reward token</div>
+          </div>
+        </div>
+
+        <!-- CONTRACT (selected MerkleDistributor) -->
+        <div class="absolute z-10 flow-node" style="left: 100px; top: 330px; width: 200px;">
+          <div class="bg-slate-900 border-2 border-blue-500 rounded-md px-3 py-2 cursor-pointer relative" style="box-shadow: 0 0 0 4px rgba(59, 130, 246, 0.12), 0 8px 24px -4px rgba(59, 130, 246, 0.25);">
+            <div class="absolute top-0 left-0 right-0 h-[3px] bg-red-500/80 rounded-t-sm"></div>
+            <div class="flex items-center gap-1 mb-1 mt-0.5">
+              <span class="badge badge-contract">SOL</span>
+              <span class="text-[9px] text-red-400/70">BSC Mainnet</span>
+              <span class="ml-auto flex gap-px">
+                <a class="icon-btn text-blue-400 hover:bg-blue-500/20" title="View on BscScan (Mainnet)">🌐</a>
+                <a class="icon-btn text-amber-400 hover:bg-amber-500/20" title="View on BscScan Testnet">🧪</a>
+                <a class="icon-btn text-slate-400 hover:bg-slate-700" title="View ABI">📋</a>
+              </span>
+            </div>
+            <div class="font-mono text-[12px] font-semibold text-red-50">MerkleDistributor</div>
+            <div class="font-mono text-[10px] text-slate-500 mt-0.5">0x6Bd0…A3f4</div>
+            <div class="flex items-center gap-1 mt-1">
+              <div class="text-[9px] text-blue-400 font-medium">SELECTED</div>
+              <div class="text-[9px] text-slate-600">·</div>
+              <div class="text-[9px] text-slate-500">3 callers</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="absolute z-10 flow-node" style="left: 380px; top: 330px; width: 200px;">
+          <div class="bg-slate-900/80 backdrop-blur border-l-[3px] border-l-red-500 border-y border-r border-y-slate-800 border-r-slate-800 rounded-md px-3 py-2 hover:border-y-red-500/40 hover:border-r-red-500/40 hover:-translate-y-px cursor-pointer transition-all" style="box-shadow: 0 2px 8px -2px rgba(0,0,0,0.4);">
+            <div class="flex items-center gap-1 mb-1">
+              <span class="badge badge-contract">SOL</span>
+              <span class="text-[9px] text-red-400/70">BSC · ×4</span>
+              <span class="ml-auto flex gap-px">
+                <a class="icon-btn hover:bg-blue-500/20" title="Mainnet">🌐</a>
+                <a class="icon-btn hover:bg-amber-500/20" title="Testnet">🧪</a>
+              </span>
+            </div>
+            <div class="font-mono text-[12px] font-semibold text-red-50">RewardRouter</div>
+            <div class="text-[10px] text-slate-500 mt-0.5">Supply / LP / Borrow / Rockaway</div>
+          </div>
+        </div>
+
+        <div class="absolute z-10 flow-node" style="left: 620px; top: 330px; width: 200px;">
+          <div class="bg-slate-900/80 backdrop-blur border-l-[3px] border-l-red-500 border-y border-r border-y-slate-800 border-r-slate-800 rounded-md px-3 py-2 hover:border-y-red-500/40 hover:border-r-red-500/40 hover:-translate-y-px cursor-pointer transition-all" style="box-shadow: 0 2px 8px -2px rgba(0,0,0,0.4);">
+            <div class="flex items-center gap-1 mb-1">
+              <span class="badge badge-contract">SOL</span>
+              <span class="text-[9px] text-red-400/70">BSC Mainnet</span>
+              <span class="ml-auto flex gap-px">
+                <a class="icon-btn hover:bg-blue-500/20" title="Mainnet">🌐</a>
+                <a class="icon-btn hover:bg-amber-500/20" title="Testnet">🧪</a>
+              </span>
+            </div>
+            <div class="font-mono text-[12px] font-semibold text-red-50">LendingEmissionV2</div>
+            <div class="font-mono text-[10px] text-slate-500 mt-0.5">0x4F1d…8eA2</div>
+          </div>
+        </div>
+
+        <!-- DB -->
+        <div class="absolute z-10 flow-node" style="left: 180px; top: 425px; width: 200px;">
+          <div class="bg-slate-900/80 backdrop-blur border-l-[3px] border-l-purple-500 border-y border-r border-y-slate-800 border-r-slate-800 rounded-md px-3 py-2 hover:border-y-purple-500/40 hover:border-r-purple-500/40 hover:-translate-y-px cursor-pointer transition-all" style="box-shadow: 0 2px 8px -2px rgba(0,0,0,0.4);">
+            <div class="flex items-center gap-1.5 mb-0.5">
+              <span class="badge badge-db">DB</span>
+              <span class="text-[9px] text-purple-400/70">MySQL · lista-admin</span>
+            </div>
+            <div class="font-mono text-[12px] text-purple-100">merkle_root_log</div>
+          </div>
+        </div>
+
+        <div class="absolute z-10 flow-node" style="left: 440px; top: 425px; width: 200px;">
+          <div class="bg-slate-900/80 backdrop-blur border-l-[3px] border-l-purple-500 border-y border-r border-y-slate-800 border-r-slate-800 rounded-md px-3 py-2 hover:border-y-purple-500/40 hover:border-r-purple-500/40 hover:-translate-y-px cursor-pointer transition-all" style="box-shadow: 0 2px 8px -2px rgba(0,0,0,0.4);">
+            <div class="flex items-center gap-1.5 mb-0.5">
+              <span class="badge badge-db">DB</span>
+              <span class="text-[9px] text-purple-400/70">MySQL · lista-admin</span>
+            </div>
+            <div class="font-mono text-[12px] text-purple-100">emission_reward_log</div>
+          </div>
+        </div>
+
+        <!-- REDIS -->
+        <div class="absolute z-10 flow-node" style="left: 180px; top: 510px; width: 220px;">
+          <div class="bg-slate-900/80 backdrop-blur border-l-[3px] border-l-pink-500 border-y border-r border-y-slate-800 border-r-slate-800 rounded-md px-3 py-2 hover:border-y-pink-500/40 hover:border-r-pink-500/40 hover:-translate-y-px cursor-pointer transition-all" style="box-shadow: 0 2px 8px -2px rgba(0,0,0,0.4);">
+            <div class="flex items-center gap-1.5 mb-0.5">
+              <span class="badge badge-redis">RDS</span>
+              <span class="text-[9px] text-pink-400/70">String · TTL 1d</span>
+            </div>
+            <div class="font-mono text-[11px] text-pink-100 truncate">moolah:emission:pending_root</div>
+          </div>
+        </div>
+
+        <div class="absolute z-10 flow-node" style="left: 440px; top: 510px; width: 240px;">
+          <div class="bg-slate-900/80 backdrop-blur border-l-[3px] border-l-pink-500 border-y border-r border-y-slate-800 border-r-slate-800 rounded-md px-3 py-2 hover:border-y-pink-500/40 hover:border-r-pink-500/40 hover:-translate-y-px cursor-pointer transition-all" style="box-shadow: 0 2px 8px -2px rgba(0,0,0,0.4);">
+            <div class="flex items-center gap-1.5 mb-0.5">
+              <span class="badge badge-redis">RDS</span>
+              <span class="text-[9px] text-pink-400/70">Hash · TTL 7d</span>
+            </div>
+            <div class="font-mono text-[11px] text-pink-100 truncate">moolah:claim_status:{addr}</div>
+          </div>
+        </div>
+
+        <!-- Bottom legend -->
+        <div class="absolute bottom-3 right-3 z-20 flex gap-3 text-[10px] bg-slate-900/80 backdrop-blur px-3 py-1.5 rounded-md border border-slate-700/50">
+          <div class="flex items-center gap-1"><span class="w-2 h-2 rounded-full bg-cyan-500"></span>UI</div>
+          <div class="flex items-center gap-1"><span class="w-2 h-2 rounded-full bg-emerald-500"></span>API</div>
+          <div class="flex items-center gap-1"><span class="w-2 h-2 rounded-full bg-amber-500"></span>Cron</div>
+          <div class="flex items-center gap-1"><span class="w-2 h-2 rounded-full bg-red-500"></span>Contract</div>
+          <div class="flex items-center gap-1"><span class="w-2 h-2 rounded-full bg-purple-500"></span>DB</div>
+          <div class="flex items-center gap-1"><span class="w-2 h-2 rounded-full bg-pink-500"></span>Redis</div>
+          <div class="border-l border-slate-700 pl-3 flex items-center gap-1.5">
+            <svg width="14" height="2"><line x1="0" y1="1" x2="14" y2="1" stroke="#64748b" stroke-width="1.5"/></svg>
+            <span class="text-slate-500">权威</span>
+          </div>
+          <div class="flex items-center gap-1.5">
+            <svg width="14" height="2"><line x1="0" y1="1" x2="14" y2="1" stroke="#475569" stroke-width="1.5" stroke-dasharray="2 2"/></svg>
+            <span class="text-slate-500">推断</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Implementation Tabs -->
+    <div class="px-6 py-4">
+      <h2 class="text-sm font-semibold mb-3 flex items-center gap-2">
+        <span>📦</span>
+        <span>实现清单</span>
+      </h2>
+
+      <div class="border-b border-slate-800 flex gap-6 text-sm mb-3">
+        <button class="py-2 text-slate-400 hover:text-slate-200">UI <span class="text-xs">2</span></button>
+        <button class="py-2 text-slate-400 hover:text-slate-200">APIs <span class="text-xs">3</span></button>
+        <button class="py-2 text-slate-400 hover:text-slate-200">Cron <span class="text-xs">5</span></button>
+        <button class="py-2 tab-active">Contracts <span class="text-xs text-slate-500">4</span></button>
+        <button class="py-2 text-slate-400 hover:text-slate-200">DB <span class="text-xs">2</span></button>
+        <button class="py-2 text-slate-400 hover:text-slate-200">Redis <span class="text-xs">3</span></button>
+      </div>
+
+      <div class="bg-slate-900 rounded-lg overflow-hidden border border-slate-800">
+        <table class="w-full text-sm">
+          <thead class="text-xs text-slate-500 bg-slate-900/50">
+            <tr>
+              <th class="text-left px-4 py-2">Name</th>
+              <th class="text-left px-4 py-2">Address</th>
+              <th class="text-left px-4 py-2">Chain</th>
+              <th class="text-left px-4 py-2">Used by</th>
+              <th class="text-left px-4 py-2">Explorer</th>
+            </tr>
+          </thead>
+          <tbody class="divide-y divide-slate-800">
+            <tr class="bg-blue-500/10 cursor-pointer">
+              <td class="px-4 py-2 font-mono text-xs">MerkleDistributor <span class="badge badge-contract ml-1" style="font-size:9px">selected</span></td>
+              <td class="px-4 py-2 font-mono text-xs text-slate-400">0x6Bd0…A3f4</td>
+              <td class="px-4 py-2 text-xs">BSC Mainnet</td>
+              <td class="px-4 py-2 text-xs"><span class="text-emerald-400">3 callers</span></td>
+              <td class="px-4 py-2 text-xs">
+                <a class="text-blue-400 hover:underline">Mainnet ↗</a>
+                <span class="mx-1 text-slate-700">·</span>
+                <a class="text-amber-400 hover:underline">Testnet ↗</a>
+              </td>
+            </tr>
+            <tr class="hover:bg-slate-800/40 cursor-pointer">
+              <td class="px-4 py-2 font-mono text-xs">RewardRouter (Supply)</td>
+              <td class="px-4 py-2 font-mono text-xs text-slate-400">0x12Ab…cD34</td>
+              <td class="px-4 py-2 text-xs">BSC Mainnet</td>
+              <td class="px-4 py-2 text-xs">2 callers</td>
+              <td class="px-4 py-2 text-xs">
+                <a class="text-blue-400 hover:underline">Mainnet ↗</a>
+                <span class="mx-1 text-slate-700">·</span>
+                <a class="text-amber-400 hover:underline">Testnet ↗</a>
+              </td>
+            </tr>
+            <tr class="hover:bg-slate-800/40 cursor-pointer">
+              <td class="px-4 py-2 font-mono text-xs">RewardRouter (LP)</td>
+              <td class="px-4 py-2 font-mono text-xs text-slate-400">0x55Ee…f7B0</td>
+              <td class="px-4 py-2 text-xs">BSC Mainnet</td>
+              <td class="px-4 py-2 text-xs">1 caller</td>
+              <td class="px-4 py-2 text-xs">
+                <a class="text-blue-400 hover:underline">Mainnet ↗</a>
+                <span class="mx-1 text-slate-700">·</span>
+                <a class="text-amber-400 hover:underline">Testnet ↗</a>
+              </td>
+            </tr>
+            <tr class="hover:bg-slate-800/40 cursor-pointer">
+              <td class="px-4 py-2 font-mono text-xs">LendingEmissionV2</td>
+              <td class="px-4 py-2 font-mono text-xs text-slate-400">0x4F1d…8eA2</td>
+              <td class="px-4 py-2 text-xs">BSC Mainnet</td>
+              <td class="px-4 py-2 text-xs">3 callers</td>
+              <td class="px-4 py-2 text-xs">
+                <a class="text-blue-400 hover:underline">Mainnet ↗</a>
+                <span class="mx-1 text-slate-700">·</span>
+                <a class="text-amber-400 hover:underline">Testnet ↗</a>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    </div> <!-- close scrollable content -->
+
+    <!-- Drawer backdrop (subtle, click to close) -->
+    <div class="absolute inset-0 bg-slate-950/30 backdrop-blur-[2px] z-20 cursor-pointer drawer-backdrop" title="点击关闭"></div>
+
+    <!-- Detail Drawer (overlay, slides in from right) -->
+    <div class="absolute right-0 top-0 bottom-0 w-[420px] bg-slate-900 border-l border-slate-800 z-30 overflow-y-auto scroll-hide drawer-panel" style="box-shadow: -12px 0 32px -8px rgba(0, 0, 0, 0.6);">
+    <div class="px-4 py-3 border-b border-slate-800 flex items-center justify-between sticky top-0 bg-slate-900 z-10">
+      <div class="flex items-center gap-2">
+        <span class="badge badge-contract">SOL</span>
+        <span class="text-xs text-slate-500">Moolah / Emission</span>
+      </div>
+      <button class="text-slate-400 hover:text-slate-200 hover:bg-slate-800 w-7 h-7 rounded flex items-center justify-center" title="关闭 (Esc)">✕</button>
+    </div>
+
+    <div class="px-4 py-3">
+      <h3 class="font-mono text-base font-semibold">MerkleDistributor</h3>
+      <p class="text-xs text-slate-400 mt-1">基于 merkle proof 的分发合约，每周三 setMerkleRoot 后用户在前端 claim 奖励。</p>
+      <div class="mt-2 flex items-center gap-1.5">
+        <span class="badge badge-contract">BSC Mainnet</span>
+        <span class="text-[10px] text-emerald-400">● Verified on BscScan</span>
+      </div>
+    </div>
+
+    <!-- Address & Explorer (核心功能) -->
+    <div class="px-4 py-3 border-t border-slate-800">
+      <div class="text-xs text-slate-500 uppercase mb-2">合约地址 / 跳转</div>
+      <div class="space-y-2">
+        <div class="bg-slate-800/60 rounded p-2.5">
+          <div class="flex items-center justify-between mb-1">
+            <span class="text-[10px] text-slate-500 uppercase">Mainnet (BSC)</span>
+            <button class="text-[10px] text-slate-400 hover:text-slate-200">📋 Copy</button>
+          </div>
+          <div class="font-mono text-xs text-slate-200 break-all mb-1.5">0x6Bd07f9CC...8aA3f4</div>
+          <div class="flex gap-1">
+            <a class="flex-1 text-center text-xs bg-blue-600/30 hover:bg-blue-600/50 border border-blue-500/50 rounded py-1.5 cursor-pointer">
+              🌐 BscScan ↗
+            </a>
+            <a class="flex-1 text-center text-xs bg-slate-700 hover:bg-slate-600 rounded py-1.5 cursor-pointer">
+              📊 Read Contract
+            </a>
+          </div>
+        </div>
+
+        <div class="bg-slate-800/60 rounded p-2.5">
+          <div class="flex items-center justify-between mb-1">
+            <span class="text-[10px] text-slate-500 uppercase">Testnet (BSC Testnet)</span>
+            <button class="text-[10px] text-slate-400 hover:text-slate-200">📋 Copy</button>
+          </div>
+          <div class="font-mono text-xs text-slate-200 break-all mb-1.5">0x9aE12b04...c5DF21</div>
+          <div class="flex gap-1">
+            <a class="flex-1 text-center text-xs bg-amber-600/30 hover:bg-amber-600/50 border border-amber-500/50 rounded py-1.5 cursor-pointer">
+              🧪 Testnet BscScan ↗
+            </a>
+            <a class="flex-1 text-center text-xs bg-slate-700 hover:bg-slate-600 rounded py-1.5 cursor-pointer">
+              📊 Read Contract
+            </a>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ABI / Source -->
+    <div class="px-4 py-3 border-t border-slate-800">
+      <div class="text-xs text-slate-500 uppercase mb-2">ABI / 源码</div>
+      <div class="flex gap-1.5 mb-2">
+        <button class="flex-1 text-xs bg-slate-800 hover:bg-slate-700 px-2 py-1.5 rounded">📋 ABI (JSON)</button>
+        <button class="flex-1 text-xs bg-slate-800 hover:bg-slate-700 px-2 py-1.5 rounded">📄 源码</button>
+      </div>
+      <div class="bg-slate-950 rounded text-[11px] font-mono p-2.5 leading-relaxed">
+        <div class="text-slate-500 mb-1">// 主要方法</div>
+        <div><span class="text-purple-400">function</span> <span class="text-blue-400">setMerkleRoot</span>(<span class="text-amber-300">bytes32</span> _root) <span class="text-slate-500">external onlyOwner</span></div>
+        <div><span class="text-purple-400">function</span> <span class="text-blue-400">claim</span>(<span class="text-amber-300">address</span> account, <span class="text-amber-300">uint256</span> amount, <span class="text-amber-300">bytes32[]</span> proof)</div>
+        <div><span class="text-purple-400">function</span> <span class="text-blue-400">isClaimed</span>(<span class="text-amber-300">uint256</span> index) <span class="text-purple-400">view returns</span> (<span class="text-amber-300">bool</span>)</div>
+        <div class="text-slate-500 mt-1.5">// 7 个方法 · 完整 ABI →</div>
+      </div>
+    </div>
+
+    <!-- Relations: 谁在调用 -->
+    <div class="px-4 py-3 border-t border-slate-800">
+      <div class="text-xs text-slate-500 uppercase mb-2">🔗 调用方 (3)</div>
+      <div class="space-y-1.5">
+        <div class="bg-slate-800 rounded px-2.5 py-2 cursor-pointer hover:bg-slate-700 group">
+          <div class="flex items-center gap-1.5 mb-0.5">
+            <span class="badge badge-cron">CRON</span>
+            <span class="text-[10px] text-slate-500 ml-auto">setMerkleRoot</span>
+          </div>
+          <div class="font-mono text-[11px]">moolahEmissionTask</div>
+          <div class="text-[10px] text-slate-500 mt-0.5">lista-cron · 50007</div>
+        </div>
+        <div class="bg-slate-800 rounded px-2.5 py-2 cursor-pointer hover:bg-slate-700 group">
+          <div class="flex items-center gap-1.5 mb-0.5">
+            <span class="badge badge-cron">CRON</span>
+            <span class="text-[10px] text-slate-500 ml-auto">claim</span>
+          </div>
+          <div class="font-mono text-[11px]">autoClaimForPartners</div>
+          <div class="text-[10px] text-slate-500 mt-0.5">lista-bot · 50008</div>
+        </div>
+        <div class="bg-slate-800 rounded px-2.5 py-2 cursor-pointer hover:bg-slate-700 group">
+          <div class="flex items-center gap-1.5 mb-0.5">
+            <span class="badge badge-api">GET</span>
+            <span class="text-[10px] text-slate-500 ml-auto">isClaimed (read)</span>
+          </div>
+          <div class="font-mono text-[11px]">/api/moolah/rewards/claimable</div>
+          <div class="text-[10px] text-slate-500 mt-0.5">lista-admin</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Ask Panorama -->
+    <div class="px-4 py-3 border-t border-slate-800">
+      <div class="text-xs text-slate-500 uppercase mb-2">💬 Ask Panorama</div>
+      <div class="bg-slate-950 rounded p-3 text-sm">
+        <div class="text-slate-400 text-[11px] mb-2">建议问题：</div>
+        <div class="space-y-1">
+          <button class="block w-full text-left text-[11px] text-blue-400 hover:underline">→ MerkleDistributor 的 owner 是谁？怎么 setMerkleRoot？</button>
+          <button class="block w-full text-left text-[11px] text-blue-400 hover:underline">→ 测试网合约最近一次部署是什么时候？</button>
+          <button class="block w-full text-left text-[11px] text-blue-400 hover:underline">→ 这个合约有没有 emergency pause 机制？</button>
+        </div>
+        <div class="border-t border-slate-800 mt-3 pt-2">
+          <input class="w-full bg-transparent text-xs outline-none placeholder-slate-600" placeholder="或者直接问..."/>
+        </div>
+      </div>
+    </div>
+
+    <div class="px-4 py-3 border-t border-slate-800 flex gap-2 sticky bottom-0 bg-slate-900">
+      <button class="flex-1 text-xs bg-slate-800 hover:bg-slate-700 px-3 py-2 rounded">📖 业务文档</button>
+      <button class="flex-1 text-xs bg-slate-800 hover:bg-slate-700 px-3 py-2 rounded">🐙 GitHub 代码</button>
+    </div>
+    </div> <!-- close drawer panel -->
+
+  </div> <!-- close middle wrapper -->
+
+</div>
+
+<!-- Annotation -->
+<div class="fixed bottom-4 left-80 bg-slate-800/95 border border-slate-700 rounded-lg p-3 text-xs max-w-xs shadow-xl backdrop-blur z-40">
+  <div class="font-semibold mb-1.5 flex items-center gap-1">📌 Mockup 说明</div>
+  <ul class="text-slate-400 space-y-1 leading-relaxed">
+    <li>• 详情面板是<span class="text-blue-300">抽屉式</span>，点节点滑出，✕ 或点背景关闭</li>
+    <li>• 6 类节点：<span class="text-cyan-400">UI</span> / <span class="text-emerald-400">API</span> / <span class="text-amber-400">Cron</span> / <span class="text-red-400">合约</span> / <span class="text-purple-400">DB</span> / <span class="text-pink-400">Redis</span></li>
+    <li>• 合约节点上有 🌐(主网) 🧪(测试网) 📋(ABI) 三个快捷按钮</li>
+    <li>• 实线 = 权威关系；虚线 = 启发式推断</li>
+    <li>• 选中节点时，相关边变蓝高亮</li>
+    <li>• 抽屉关闭后，流程图占满整个内容区</li>
+  </ul>
+</div>
+
+</body>
+</html>
