@@ -1,0 +1,23 @@
+{
+  "name": "@panorama/ingestion",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "rebuild": "tsx src/cli.ts rebuild",
+    "test": "vitest run",
+    "typecheck": "tsc -p tsconfig.test.json --noEmit"
+  },
+  "dependencies": {
+    "@types/node": "^20.14.0",
+    "dotenv": "^16.4.5",
+    "gray-matter": "^4.0.3",
+    "mysql2": "^3.11.0",
+    "ts-morph": "^23.0.0"
+  },
+  "devDependencies": {
+    "tsx": "^4.16.0",
+    "typescript": "^5.5.4",
+    "vitest": "^2.0.0"
+  }
+}
