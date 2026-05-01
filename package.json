@@ -1,0 +1,15 @@
+{
+  "name": "panorama",
+  "version": "0.1.0",
+  "private": true,
+  "packageManager": "pnpm@9.10.0",
+  "engines": { "node": ">=20.10.0" },
+  "scripts": {
+    "migrate": "pnpm --filter migrations run apply",
+    "rebuild": "pnpm --filter ingestion run rebuild",
+    "dev": "pnpm --filter webapp run dev",
+    "build": "pnpm -r run build",
+    "test": "pnpm -r run test",
+    "lint": "pnpm -r run lint"
+  }
+}
