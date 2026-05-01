@@ -41,7 +41,7 @@ panorama/
 
 | 维度 | 决策 |
 |------|------|
-| 存储 | MySQL（复用 lista-qa 实例，新建 `panorama_*` 前缀表） |
+| 存储 | MySQL（复用 lista_qa 实例，新建 `panorama_*` 前缀表） |
 | 可视化 | 左侧业务树 + 右侧抽屉式节点详情；流程图用 React Flow 实现 |
 | 触发更新 | Cron 每日 02:00 + UI 一键 rebuild（不做跨仓库 GitHub Actions） |
 | 节点类型 | 6 类：UI / API / Cron / Contract / DB / Redis |
@@ -73,7 +73,7 @@ panorama/
 
 - **前端**：Next.js 14 App Router + React Flow + Monaco Editor
 - **后端**：Next.js Route Handler（无独立 BFF）
-- **存储**：MySQL（复用 lista-qa）
+- **存储**：MySQL（复用 lista_qa）
 - **Ingestion**：Node.js + ts-morph + git-sync
 - **部署**：K8s + 内网 ingress
 
@@ -81,7 +81,7 @@ panorama/
 
 | 项 | Owner | 时机 |
 |----|------|------|
-| `lista-qa` 库 DDL 权限确认 | DBA | Phase 1 W1 |
+| `lista_qa` 库 DDL 权限确认 | DBA | Phase 1 W1 |
 | K8s namespace + ingress 申请 | DevOps | Phase 1 W4 |
 | 5 个上游仓库 deploy key | DevOps | Phase 1 W4 |
 | OIDC SSO 配置 | IT | Phase 3 W12 |

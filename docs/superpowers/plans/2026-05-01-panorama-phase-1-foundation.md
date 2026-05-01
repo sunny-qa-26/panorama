@@ -7,7 +7,7 @@
 **Architecture:**
 - Greenfield repo (`panorama/`) with three top-level packages: `webapp/` (Next.js 14 App Router + SSR), `ingestion/` (Node.js + ts-morph orchestrator + 2 ingestors for Phase 1), `migrations/` (forward-only `.sql` files + tiny TypeScript runner).
 - Source repos (`lista-knowledge`, `lista-cron`, `lista-bot`) are read-only via filesystem path (`REPOS_PATH=~/Documents/code` in dev; PVC in prod).
-- MySQL `lista-qa` instance (existing) holds all Panorama tables under `panorama_*` prefix; ingestion writes via staging-table + `RENAME TABLE` swap (atomic, retryable).
+- MySQL `lista_qa` instance (existing) holds all Panorama tables under `panorama_*` prefix; ingestion writes via staging-table + `RENAME TABLE` swap (atomic, retryable).
 - One ingestion command rebuilds everything: `pnpm rebuild` → 7-step pipeline → MySQL. Phase 1 wires only `knowledge` + `cron` ingestors; Phase 2/3 add the rest.
 
 **Tech Stack:** Node 20 + pnpm 9, TypeScript 5 strict, Next.js 14 (App Router), Tailwind + shadcn/ui, react-arborist (virtualised tree), mysql2/promise, ts-morph (AST), gray-matter (frontmatter), mermaid v10 (lazy), vitest (unit + integration), Playwright (deferred to Phase 2).
@@ -116,7 +116,7 @@ panorama/
 
 ## Pre-flight (Task 0)
 
-Resolve before Task 1. The user has confirmed `bijieprd` should have DDL on `lista-qa`, but Task 0 verifies it before any migrations land.
+Resolve before Task 1. The user has confirmed `bijieprd` should have DDL on `lista_qa`, but Task 0 verifies it before any migrations land.
 
 **Files:**
 - Modify: `~/.lista/config.json` (or shell env) — add `MYSQL_PASSWORD` for `bijieprd`
@@ -125,23 +125,23 @@ Resolve before Task 1. The user has confirmed `bijieprd` should have DDL on `lis
 
 ```bash
 mysql -h tf-saasbiz-qa-common-db.cluster-ctq8ac28izd2.ap-southeast-1.rds.amazonaws.com \
-      -P 3306 -u bijieprd -p lista-qa \
+      -P 3306 -u bijieprd -p lista_qa \
       -e "SELECT CURRENT_USER(), DATABASE(), VERSION();"
 ```
 
-Expected: a single row showing `bijieprd@%`, `lista-qa`, MySQL `8.x.x`. If the connection times out, the user is off VPN — reconnect and retry.
+Expected: a single row showing `bijieprd@%`, `lista_qa`, MySQL `8.x.x`. If the connection times out, the user is off VPN — reconnect and retry.
 
 - [ ] **Step 2: Verify DDL permission with a throwaway table**
 
 ```bash
-mysql -h <host> -u bijieprd -p lista-qa <<'SQL'
+mysql -h <host> -u bijieprd -p lista_qa <<'SQL'
 CREATE TABLE _panorama_perm_check (id INT) ENGINE=InnoDB;
 DROP TABLE _panorama_perm_check;
 SELECT 'DDL OK' AS result;
 SQL
 ```
 
-Expected: `DDL OK`. If you get `ERROR 1142 (42000): CREATE command denied`, **stop** and ask the DBA to grant `ALL PRIVILEGES ON \`lista-qa\`.\`panorama_*\` TO 'bijieprd'@'%';` (or escalate per the open question O1 in PRD §9.2).
+Expected: `DDL OK`. If you get `ERROR 1142 (42000): CREATE command denied`, **stop** and ask the DBA to grant `ALL PRIVILEGES ON \`lista_qa\`.\`panorama_*\` TO 'bijieprd'@'%';` (or escalate per the open question O1 in PRD §9.2).
 
 - [ ] **Step 3: Record outcome in `.meta.json`**
 
@@ -149,7 +149,7 @@ Update `panorama/.meta.json` `open_questions` — strike through O1 with the ver
 
 ```json
 "open_questions": [
-  "[RESOLVED 2026-05-XX] DB 账号 bijieprd 是否有 lista-qa 库 DDL 权限？ — 已验证，CREATE/DROP TABLE OK",
+  "[RESOLVED 2026-05-XX] DB 账号 bijieprd 是否有 lista_qa 库 DDL 权限？ — 已验证，CREATE/DROP TABLE OK",
   "5 个上游仓库 git checkout 同步方案选哪个 (git-sync sidecar / CI 镜像 / 卷挂载)？",
   ...
 ]
@@ -258,7 +258,7 @@ MYSQL_HOST=tf-saasbiz-qa-common-db.cluster-ctq8ac28izd2.ap-southeast-1.rds.amazo
 MYSQL_PORT=3306
 MYSQL_USER=bijieprd
 MYSQL_PASSWORD=
-MYSQL_DATABASE=lista-qa
+MYSQL_DATABASE=lista_qa
 
 # Source repos root (must contain lista-knowledge, lista-cron, lista-bot, ...)
 REPOS_PATH=/Users/quansong/Documents/code
@@ -378,7 +378,7 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { createConnection } from '../src/connection.js';
 import { applyMigrations, listApplied, listPending } from '../src/runner.js';
 
-const TEST_DB = process.env.MYSQL_DATABASE ?? 'lista-qa';
+const TEST_DB = process.env.MYSQL_DATABASE ?? 'lista_qa';
 
 async function reset(conn: Awaited<ReturnType<typeof createConnection>>) {
   // Clean up any table created by 001-005 plus the history table.
@@ -618,7 +618,7 @@ Expected:
 Spot-check via mysql:
 
 ```bash
-mysql -h <host> -u bijieprd -p lista-qa -e \
+mysql -h <host> -u bijieprd -p lista_qa -e \
   "SHOW CREATE TABLE panorama_business_domain\G" | head -20
 ```
 
@@ -660,8 +660,8 @@ CREATE TABLE panorama_doc_concept_rel (
 
 ```bash
 cd /Users/quansong/Documents/code/panorama/migrations && pnpm apply
-mysql -h <host> -u bijieprd -p lista-qa -e \
-  "SELECT table_name FROM information_schema.tables WHERE table_schema='lista-qa' AND table_name LIKE 'panorama_%';"
+mysql -h <host> -u bijieprd -p lista_qa -e \
+  "SELECT table_name FROM information_schema.tables WHERE table_schema='lista_qa' AND table_name LIKE 'panorama_%';"
 ```
 
 Expected: 5 rows — `panorama_business_domain`, `panorama_concept`, `panorama_doc_concept_rel`, `panorama_knowledge_doc`, `panorama_migration_history`.
@@ -715,7 +715,7 @@ CREATE TABLE panorama_ref_link (
 
 ```bash
 cd /Users/quansong/Documents/code/panorama/migrations && pnpm apply
-mysql -h <host> -u bijieprd -p lista-qa -e \
+mysql -h <host> -u bijieprd -p lista_qa -e \
   "DESCRIBE panorama_ref_link;"
 ```
 
@@ -763,7 +763,7 @@ CREATE TABLE panorama_cron_job (
 
 ```bash
 cd /Users/quansong/Documents/code/panorama/migrations && pnpm apply
-mysql -h <host> -u bijieprd -p lista-qa -e "DESCRIBE panorama_cron_job;"
+mysql -h <host> -u bijieprd -p lista_qa -e "DESCRIBE panorama_cron_job;"
 ```
 
 Expected: 13 columns. `idx_repo_file` covers the orchestrator's Strategy A lookup (cron rows by `(repo, file_path)`).
@@ -819,8 +819,8 @@ CREATE TABLE panorama_broken_ref (
 
 ```bash
 cd /Users/quansong/Documents/code/panorama/migrations && pnpm apply
-mysql -h <host> -u bijieprd -p lista-qa -e \
-  "SELECT table_name FROM information_schema.tables WHERE table_schema='lista-qa' AND table_name LIKE 'panorama_%' ORDER BY 1;"
+mysql -h <host> -u bijieprd -p lista_qa -e \
+  "SELECT table_name FROM information_schema.tables WHERE table_schema='lista_qa' AND table_name LIKE 'panorama_%' ORDER BY 1;"
 ```
 
 Expected: 9 rows —
@@ -2585,7 +2585,7 @@ try { await loadGraph({ merged, buildId: 'fail-' + Date.now(), triggerType: 'man
 catch (e) { console.log('Caught:', e.message); }
 "
 # Verify the live tables are still readable and unchanged.
-mysql -h <host> -u bijieprd -p lista-qa -e "SHOW TABLES LIKE 'panorama_%_new';"
+mysql -h <host> -u bijieprd -p lista_qa -e "SHOW TABLES LIKE 'panorama_%_new';"
 ```
 
 Expected: `SHOW TABLES` returns 0 `_new` rows (cleanup ran). Original tables untouched.
@@ -2745,7 +2745,7 @@ Expected (timing rough — your machine, network to AWS RDS):
 Verify in MySQL:
 
 ```bash
-mysql -h <host> -u bijieprd -p lista-qa -e "
+mysql -h <host> -u bijieprd -p lista_qa -e "
 SELECT
   (SELECT COUNT(*) FROM panorama_business_domain) AS domains,
   (SELECT COUNT(*) FROM panorama_knowledge_doc) AS docs,
@@ -4268,7 +4268,7 @@ Run through PRD §10 Phase 1 acceptance criteria:
 
 ```bash
 cd /Users/quansong/Documents/code/panorama
-mysql -h <host> -u bijieprd -p lista-qa -e "
+mysql -h <host> -u bijieprd -p lista_qa -e "
 DELETE FROM panorama_ref_link;
 DELETE FROM panorama_doc_concept_rel;
 DELETE FROM panorama_concept;
@@ -4303,7 +4303,7 @@ Open `http://localhost:3000/` and record observations:
 - [ ] **Step 3: Spot-check a broken_ref**
 
 ```bash
-mysql -h <host> -u bijieprd -p lista-qa -e \
+mysql -h <host> -u bijieprd -p lista_qa -e \
   "SELECT doc_path, ref_repo, ref_file_path, reason FROM panorama_broken_ref ORDER BY id DESC LIMIT 5;"
 ```
 

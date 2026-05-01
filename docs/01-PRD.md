@@ -361,7 +361,7 @@ L3 节点详情里的"关联面板"是反向关联的核心载体：
 
 | ID | 问题 | 备选方案 |
 |----|------|---------|
-| O1 | DB 账号写权限：`bijieprd` 是否有 `lista-qa` 库的 DDL 权限？ | A. 直接用 / B. 申请新账号 / C. 用单独 schema |
+| O1 | DB 账号写权限：`bijieprd` 是否有 `lista_qa` 库的 DDL 权限？ | A. 直接用 / B. 申请新账号 / C. 用单独 schema |
 | O2 | 5 个上游仓库 git checkout 怎么同步到生产 K8s pod？ | A. CI 推镜像 / B. 卷挂载 / C. ssh git clone |
 | O3 | SSO 接公司 OIDC 的优先级？ | A. Phase 1 就接 / B. Phase 3 接 / C. 永远 basic auth + IP 白名单 |
 | O4 | 是否需要给业务方提供"简化视图"（隐藏 Cron / Entity / Route 技术细节）？ | A. 单一视图 / B. 加视图切换 / C. Phase 2 评估再定 |

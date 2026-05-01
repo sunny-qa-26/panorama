@@ -55,7 +55,7 @@
                        │
                        ▼
 ┌──────────────────────────────────────────────────────────────────┐
-│ 存储层（MySQL，复用 lista-qa 实例）                               │
+│ 存储层（MySQL，复用 lista_qa 实例）                               │
 │                                                                  │
 │  panorama_business_domain  panorama_knowledge_doc                │
 │  panorama_cron_job         panorama_api_endpoint                 │
@@ -86,7 +86,7 @@
 
 | 决策 | 选择 | 理由 |
 |------|------|------|
-| 存储引擎 | **MySQL（复用 lista-qa）** | 节点 < 1000，关系明确，外键即可表达；图数据库引入运维成本不划算 |
+| 存储引擎 | **MySQL（复用 lista_qa）** | 节点 < 1000，关系明确，外键即可表达；图数据库引入运维成本不划算 |
 | Ingestion 模式 | **批量全量重建** | 49 文档 + 4 代码库 全量扫描估 2-3 分钟，增量复杂度爆炸 |
 | 触发方式 | **Cron 调度（每日 02:00）+ UI 一键 rebuild** | 不做跨仓库 GitHub Actions（PAT/repository_dispatch 配置成本 > 收益） |
 | 前端渲染 | **SSR（Next.js）+ MySQL 直查** | 数据日级别更新，SSR 简单；不需要 BFF |
@@ -98,7 +98,7 @@
 
 ## 3. 数据模型（MySQL Schema）
 
-所有表统一加 `panorama_` 前缀，避免与 lista-qa 已有表冲突。所有时间戳字段命名 `db_create_time` / `db_modify_time`，与 `lista-cron` 现有约定保持一致。
+所有表统一加 `panorama_` 前缀，避免与 lista_qa 已有表冲突。所有时间戳字段命名 `db_create_time` / `db_modify_time`，与 `lista-cron` 现有约定保持一致。
 
 ### 3.1 业务树相关
 
@@ -887,7 +887,7 @@ services:
       MYSQL_PORT: 3306
       MYSQL_USER: bijieprd
       MYSQL_PASSWORD: ${MYSQL_PASSWORD}
-      MYSQL_DATABASE: lista-qa
+      MYSQL_DATABASE: lista_qa
       REPOS_PATH: /var/repos
     volumes:
       - ~/Documents/code:/var/repos:ro
@@ -904,7 +904,7 @@ services:
 | 组件 | 部署 |
 |------|------|
 | webapp | K8s Deployment（2 replicas）+ Service + Ingress `panorama.lista.internal` |
-| MySQL | 复用 lista-qa 实例（不新部署） |
+| MySQL | 复用 lista_qa 实例（不新部署） |
 | ingestion | K8s CronJob（每日 02:00 UTC+8）+ 一次性 Job（手动触发） |
 | 仓库源码 | git-sync sidecar 把 5 个上游仓库 clone 到 PVC，webapp pod 挂载只读 |
 | 监控 | Prometheus 暴露 `/metrics`，告警接 PagerDuty/Slack |
@@ -929,7 +929,7 @@ services:
 
 ### 9.4 数据库账号 / 权限
 
-- **现有账号 `bijieprd`**：先确认是否有 `lista-qa` 库的 DDL（CREATE TABLE）权限
+- **现有账号 `bijieprd`**：先确认是否有 `lista_qa` 库的 DDL（CREATE TABLE）权限
 - 如果没有：申请新账号或临时让 DBA 帮跑 migration
 - 运行时账号最低权限：仅 `panorama_*` 表的 SELECT / INSERT / UPDATE / DELETE / TRUNCATE
 - ingestion 账号需要额外的 TRUNCATE 权限
@@ -1137,14 +1137,14 @@ test('emission domain has 5+ cron jobs', async () => {
 - `lista-admin/src/modules/launchpool/launchpool.service.ts:54` — `callCronApi()` 代理调用模式起点
 
 **复用工具：**
-- `lista-qa-skill/agents/biz-doc.md` — 写入流程参考
-- `lista-qa-skill/skills/ask-knowledge/` — 互补查询入口
+- `lista_qa-skill/agents/biz-doc.md` — 写入流程参考
+- `lista_qa-skill/skills/ask-knowledge/` — 互补查询入口
 
 ### 15.4 待协调清单（IT / DBA）
 
 | 项 | Owner | 时机 | 备注 |
 |----|------|------|------|
-| `lista-qa` 库 DDL 权限 | DBA | Phase 1 W1 | 确认 `bijieprd` 是否够用 |
+| `lista_qa` 库 DDL 权限 | DBA | Phase 1 W1 | 确认 `bijieprd` 是否够用 |
 | K8s namespace + ingress | IT/DevOps | Phase 1 W4 | 申请 `panorama.lista.internal` 域名 |
 | git-sync deploy key | DevOps | Phase 1 W4 | 5 个仓库各一个 read-only deploy key |
 | OIDC IdP 配置 | IT | Phase 3 W12 | redirect URI / scope / claims |
@@ -1158,7 +1158,7 @@ test('emission domain has 5+ cron jobs', async () => {
 - **业务健康度评分**：每个 domain 算一个分（last_verified 新鲜度 / broken_refs 数量 / 文档覆盖率）
 - **手写 vs auto 流程图漂移检测**：对比 lista-knowledge mermaid 中提到的实体名 vs 实际 ingest 出来的节点，差异列入 broken_refs
 - **数据迁移看板**：显示 schema 变更 / 新增 cron / 新增合约的时间序列
-- **集成 lista-qa-skill 的 verify 系列**：从 Panorama 节点一键触发 `verify market` 等运维操作
+- **集成 lista_qa-skill 的 verify 系列**：从 Panorama 节点一键触发 `verify market` 等运维操作
 - **自动 PR 修复 broken_refs**：发现失效引用时调用 biz-doc agent 自动开 PR 修文档（从消费者升级为知识库 CI 引擎）
 - **manifest 契约化降低耦合**：上游仓库可选提供 `panorama.manifest.json`，ingestion 优先读 manifest，AST 扫描作 fallback
 - **VS Code 扩展**：复用 graph.json 数据，在 IDE 内查看"我正在改的 cron 影响哪些业务"

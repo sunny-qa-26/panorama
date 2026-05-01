@@ -39,7 +39,7 @@
     "Phase 1 W1 启动: schema migration + knowledge/cron ingestor"
   ],
   "open_questions": [
-    "DB 账号 bijieprd 是否有 lista-qa 库 DDL 权限？",
+    "[RESOLVED 2026-05-01] DB 账号 bijieprd 在 lista_qa 库（注意是下划线，不是连字符）已验证 DDL 权限可用",
     "5 个上游仓库 git checkout 同步方案选哪个 (git-sync sidecar / CI 镜像 / 卷挂载)？",
     "SSO 接公司 OIDC 时机：Phase 1 / Phase 3 / 永远 basic auth？",
     "是否需要给业务方提供简化视图（隐藏技术细节）？",
