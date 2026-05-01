@@ -1,19 +1,21 @@
 import { createHash } from 'node:crypto';
 import { readFile, readdir } from 'node:fs/promises';
 import { join } from 'node:path';
-import type { Connection } from 'mysql2/promise';
-import { createConnection } from './connection.js';
+import type { Connection, RowDataPacket } from 'mysql2/promise';
 
 interface ApplyOpts { conn: Connection; sqlDir: string; }
 
+interface FilenameRow extends RowDataPacket { filename: string; }
+interface ExistsRow extends RowDataPacket { '1': number; }
+
 export async function listApplied(conn: Connection): Promise<string[]> {
   try {
-    const [rows] = await conn.query<any[]>(
+    const [rows] = await conn.query<FilenameRow[]>(
       'SELECT filename FROM panorama_migration_history ORDER BY filename'
     );
-    return rows.map((r: any) => r.filename);
-  } catch (err: any) {
-    if (err?.code === 'ER_NO_SUCH_TABLE') return [];
+    return rows.map(r => r.filename);
+  } catch (err: unknown) {
+    if (err && typeof err === 'object' && 'code' in err && err.code === 'ER_NO_SUCH_TABLE') return [];
     throw err;
   }
 }
@@ -47,23 +49,9 @@ export async function applyMigrations(opts: ApplyOpts): Promise<{ applied: strin
 }
 
 async function tableExists(conn: Connection, name: string): Promise<boolean> {
-  const [rows] = await conn.query<any[]>(
+  const [rows] = await conn.query<ExistsRow[]>(
     'SELECT 1 FROM information_schema.tables WHERE table_schema = DATABASE() AND table_name = ?',
     [name]
   );
   return rows.length > 0;
-}
-
-if (process.argv[2] === 'apply') {
-  const conn = await createConnection();
-  const out = await applyMigrations({ conn, sqlDir: 'sql' });
-  console.log('Applied:', out.applied.length ? out.applied.join(', ') : '(none — already up to date)');
-  await conn.end();
-} else if (process.argv[2] === 'status') {
-  const conn = await createConnection();
-  const applied = await listApplied(conn);
-  const pending = await listPending({ conn, sqlDir: 'sql' });
-  console.log(`Applied (${applied.length}):`, applied);
-  console.log(`Pending (${pending.length}):`, pending);
-  await conn.end();
 }

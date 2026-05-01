@@ -1,20 +1,25 @@
+import type { RowDataPacket } from 'mysql2/promise';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { createConnection } from '../src/connection.js';
 import { applyMigrations, listApplied, listPending } from '../src/runner.js';
 
-const TEST_DB = process.env.MYSQL_DATABASE ?? 'lista_qa';
+interface TableRow extends RowDataPacket { t: string; }
+interface CountRow extends RowDataPacket { count: number; }
 
 async function reset(conn: Awaited<ReturnType<typeof createConnection>>) {
-  // Clean up any table created by 001-005 plus the history table.
-  const cleanup = [
-    'panorama_broken_ref', 'panorama_build_meta',
-    'panorama_cron_job',
-    'panorama_ref_link', 'panorama_code_ref',
-    'panorama_doc_concept_rel', 'panorama_concept',
-    'panorama_knowledge_doc', 'panorama_business_domain',
-    'panorama_migration_history'
-  ];
-  for (const t of cleanup) await conn.query(`DROP TABLE IF EXISTS \`${t}\``);
+  const [rows] = await conn.query<TableRow[]>(
+    `SELECT table_name AS t FROM information_schema.tables
+     WHERE table_schema = DATABASE() AND table_name LIKE 'panorama\\_%' ESCAPE '\\\\'`
+  );
+  // Disable FK checks momentarily so DROP order doesn't matter (relevant once 001 lands FK constraints).
+  await conn.query('SET FOREIGN_KEY_CHECKS = 0');
+  try {
+    for (const { t } of rows) {
+      await conn.query(`DROP TABLE IF EXISTS \`${t}\``);
+    }
+  } finally {
+    await conn.query('SET FOREIGN_KEY_CHECKS = 1');
+  }
 }
 
 describe('migrations runner', () => {
@@ -32,7 +37,14 @@ describe('migrations runner', () => {
   });
 
   it('is idempotent — second apply is a no-op', async () => {
-    await applyMigrations({ conn, sqlDir: 'sql' });
+    const first = await applyMigrations({ conn, sqlDir: 'sql' });
+    expect(first.applied.length).toBeGreaterThan(0);
+
+    const [historyRows] = await conn.query<CountRow[]>(
+      'SELECT COUNT(*) AS count FROM panorama_migration_history'
+    );
+    expect(historyRows[0]?.count).toBe(first.applied.length);
+
     const second = await applyMigrations({ conn, sqlDir: 'sql' });
     expect(second.applied).toEqual([]);
   });
