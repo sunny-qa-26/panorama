@@ -10,8 +10,14 @@ export function DrawerContainer({ children, title }: { children: React.ReactNode
 
   useEffect(() => {
     if (!open) {
-      // navigate back when drawer closes
-      router.back();
+      // Navigate back, but fall back to home when the user landed here from a
+      // fresh tab (no in-app history). Otherwise router.back() drops them off
+      // the panorama app entirely.
+      if (typeof window !== 'undefined' && window.history.length > 1) {
+        router.back();
+      } else {
+        router.push('/');
+      }
     }
   }, [open, router]);
 
