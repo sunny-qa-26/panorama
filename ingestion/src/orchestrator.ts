@@ -267,30 +267,31 @@ export function runOrchestrator(outputs: IngestorOutput[]): MergedGraph {
     if (last) knownDomainLeaves.add(last);
   }
   function scanPathForDomain(filePath: string): string | null {
-    // Tokens to scan: each path segment, plus the filename stem split on '.' / '-' / '_'.
-    // E.g. 'src/modules/admin/moolah.admin.controller.ts' yields tokens
-    //   src, modules, admin, moolah, admin, controller, ts (filename split)
-    // so we hit 'moolah' even when the directory says 'admin'.
-    const tokens: string[] = [];
+    // Build an ordered list of tokens with `pathRank`: deeper-in-path = higher rank.
+    // For each path segment + filename stem, also split camelCase into sub-tokens.
+    // Pick the highest-rank match; ties broken by token specificity (leaf domain > root).
+    const tokens: { val: string; rank: number }[] = [];
     const segs = filePath.split('/').filter(Boolean);
-    for (const s of segs) {
-      tokens.push(s);
-      const dash = s.replace(/([a-z0-9])([A-Z])/g, '$1-$2').toLowerCase();
-      if (dash !== s) tokens.push(dash);
-    }
+    const pushAll = (s: string, rank: number) => {
+      tokens.push({ val: s, rank });
+      const camel = s.replace(/([a-z0-9])([A-Z])/g, '$1 $2').toLowerCase();
+      // Split on whitespace/dashes/underscores/dots to get sub-tokens.
+      for (const sub of camel.split(/[\s._-]+/).filter(Boolean)) {
+        tokens.push({ val: sub, rank });
+      }
+    };
+    segs.forEach((s, i) => pushAll(s, i));
     const last = segs[segs.length - 1] ?? '';
     if (last) {
       const stem = last.replace(/\.(?:ts|tsx|js|jsx|sol|py|sql|md)$/, '');
-      for (const t of stem.split(/[._-]+/).filter(Boolean)) {
-        tokens.push(t);
-        const dash = t.replace(/([a-z0-9])([A-Z])/g, '$1-$2').toLowerCase();
-        if (dash !== t) tokens.push(dash);
-      }
+      pushAll(stem, segs.length);
     }
+    let best: { val: string; rank: number } | null = null;
     for (const t of tokens) {
-      if (knownDomainLeaves.has(t)) return t;
+      if (!knownDomainLeaves.has(t.val)) continue;
+      if (!best || t.rank > best.rank) best = t;
     }
-    return null;
+    return best?.val ?? null;
   }
   for (const n of nodeMap.values()) {
     if (n.type !== 'api' && n.type !== 'route' && n.type !== 'redis' && n.type !== 'entity' && n.type !== 'cron') continue;
