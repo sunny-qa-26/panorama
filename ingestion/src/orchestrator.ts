@@ -267,16 +267,19 @@ export function runOrchestrator(outputs: IngestorOutput[]): MergedGraph {
     if (last) knownDomainLeaves.add(last);
   }
   function scanPathForDomain(filePath: string): string | null {
-    // Build an ordered list of tokens with `pathRank`: deeper-in-path = higher rank.
-    // For each path segment + filename stem, also split camelCase into sub-tokens.
-    // Pick the highest-rank match; ties broken by token specificity (leaf domain > root).
+    // Build tokens with `pathRank`: deeper-in-path = higher rank (more specific).
+    // For each path segment + filename stem, generate THREE variants:
+    //   1. raw segment (e.g. 'listaHolder')
+    //   2. dasherized full (e.g. 'lista-holder')  ← matches multi-word domain leaves
+    //   3. camel-split sub-tokens (e.g. 'lista', 'holder')  ← matches single-word leaves
+    // Pick the highest-rank match.
     const tokens: { val: string; rank: number }[] = [];
     const segs = filePath.split('/').filter(Boolean);
     const pushAll = (s: string, rank: number) => {
       tokens.push({ val: s, rank });
-      const camel = s.replace(/([a-z0-9])([A-Z])/g, '$1 $2').toLowerCase();
-      // Split on whitespace/dashes/underscores/dots to get sub-tokens.
-      for (const sub of camel.split(/[\s._-]+/).filter(Boolean)) {
+      const dashed = s.replace(/([a-z0-9])([A-Z])/g, '$1-$2').toLowerCase();
+      if (dashed !== s.toLowerCase()) tokens.push({ val: dashed, rank });
+      for (const sub of dashed.split(/[\s._-]+/).filter(Boolean)) {
         tokens.push({ val: sub, rank });
       }
     };
@@ -293,11 +296,38 @@ export function runOrchestrator(outputs: IngestorOutput[]): MergedGraph {
     }
     return best?.val ?? null;
   }
+  // Helper: also check the cron's NAME for a domain substring. Crons in god-files
+  // (customtask.service.ts has 157) won't match by file path, but the names like
+  // 'syncListaHolderBalanceLogs' / 'batchComputeListaHolderTwaps' clearly indicate
+  // ownership. Match any domain whose dasherized form, when camelCase'd into PascalCase,
+  // appears as a contiguous substring of the cron's name.
+  function scanCronNameForDomain(cronName: string): string | null {
+    if (!cronName) return null;
+    let best: string | null = null;
+    let bestLen = 0;
+    for (const leaf of knownDomainLeaves) {
+      // 'lista-holder' → 'ListaHolder'
+      const pascal = leaf
+        .split(/[-_]/)
+        .map((s) => s.charAt(0).toUpperCase() + s.slice(1))
+        .join('');
+      if (pascal.length < 4) continue; // avoid matching trivial 3-char tokens like 'cdp'
+      if (cronName.includes(pascal) && pascal.length > bestLen) {
+        best = leaf;
+        bestLen = pascal.length;
+      }
+    }
+    return best;
+  }
+
   for (const n of nodeMap.values()) {
     if (n.type !== 'api' && n.type !== 'route' && n.type !== 'redis' && n.type !== 'entity' && n.type !== 'cron') continue;
-    const data = n.data as { filePath?: string; sourceFile?: string };
+    const data = n.data as { filePath?: string; sourceFile?: string; name?: string };
     const fp = data.filePath ?? data.sourceFile ?? '';
-    const dom = scanPathForDomain(fp);
+    let dom = scanPathForDomain(fp);
+    // Cron-name fallback: catches crons in god-files whose path is uninformative
+    // but whose name contains the domain (e.g. syncListaHolderBalanceLogs).
+    if (!dom && n.type === 'cron' && data.name) dom = scanCronNameForDomain(data.name);
     if (!dom) continue;
     // find the canonical domain key (might be 'moolah/emission' or 'staking/launchpool')
     let target = dom;
