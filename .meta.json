@@ -30,12 +30,14 @@
   "phases": [
     { "id": "phase-0", "name": "设计文档", "duration_weeks": 1, "status": "completed", "deliverables": ["PRD v0.2", "Tech Design v0.2", "UI Mockup v8"] },
     { "id": "phase-1", "name": "地基", "duration_weeks": 4, "status": "completed", "deliverables": ["MySQL schema migration", "knowledge ingestor", "cron ingestor", "orchestrator (Strategy A)", "loader (staging swap)", "broken-refs detector", "rebuild CLI", "Next.js webapp (tree + domain detail + markdown + mermaid)", "basic-auth + sync indicator", "docker-compose"] },
-    { "id": "phase-2", "name": "完整数据 + 流程图 + 搜索", "duration_weeks": 4, "status": "pending", "deliverables": ["api/contract/entity/frontend/redis ingestor", "React Flow 业务流程图", "Cmd+K (6 表 UNION)", "L3 抽屉详情", "反向关联"] },
+    { "id": "phase-2", "name": "完整数据 + 流程图 + 搜索", "duration_weeks": 4, "status": "completed", "deliverables": ["5 ingestors (api/entity/contract/frontend/redis)", "orchestrator strategies (api↔entity, api↔cron, *↔redis, route↔api)", "loader extension (12 staging + 7 junctions)", "GET /api/search 8-table FT + Cmd+K cmdk palette", "GET /api/node/{type}/{id} + radix-dialog drawer", "all 6 implementation tabs", "ReactFlow business chart (dagre 6-lane)", "reverse relations panel"] },
     { "id": "phase-3", "name": "源码 + 上线", "duration_weeks": 4, "status": "pending", "deliverables": ["Monaco 代码浏览器", "源码脱敏 (4 层防护)", "K8s 部署", "SSO"] }
   ],
   "next_steps": [
-    "Phase 1 acceptance complete; merge phase-1/foundation → main",
-    "Phase 2 启动: api/contract/entity/frontend/redis ingestor + React Flow + Cmd+K",
+    "Phase 2 acceptance complete (2026-05-02); merge phase-2/full-data-search → main",
+    "Phase 3 启动: Monaco 代码浏览器 + 脱敏 + K8s 部署 + OIDC",
+    "Phase 1 follow-up: pnpm -r test shared-DB race + integ-* orphan cleanup",
+    "Phase 2 follow-up: parse RedisConstant.ts to recover 40+ static key templates",
     "邀请 1 位 QA + 1 位研发试用 staging，收集反馈"
   ],
   "open_questions": [
