@@ -1,6 +1,6 @@
 export type NodeKind =
-  | 'domain' | 'doc' | 'concept'
-  | 'cron' | 'code_ref';
+  | 'domain' | 'doc' | 'concept' | 'code_ref'
+  | 'cron' | 'api' | 'entity' | 'contract' | 'route' | 'redis';
 
 export interface IngestorNode {
   type: NodeKind;
