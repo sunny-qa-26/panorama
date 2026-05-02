@@ -10,7 +10,10 @@
     "ingest": "pnpm --filter ingestion run rebuild",
     "dev": "pnpm --filter webapp run dev",
     "build": "pnpm -r run build",
-    "test": "pnpm -r run test",
+    "test": "pnpm test:seq",
+    "test:par": "pnpm -r run test",
+    "test:seq": "pnpm migrate && pnpm --filter @panorama/ingestion run test && pnpm migrate && pnpm --filter @panorama/webapp run test",
+    "test:migrations": "pnpm --filter @panorama/migrations run test && pnpm migrate",
     "lint": "pnpm -r run lint"
   }
 }

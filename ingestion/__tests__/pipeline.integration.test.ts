@@ -14,7 +14,15 @@ interface CronDomainRow extends RowDataPacket {
 }
 
 describe('full pipeline (knowledge + cron → MySQL)', () => {
-  afterAll(closePool);
+  // Pipeline tests insert build_meta + broken_ref rows keyed `integ-${ts}`.
+  // Phase 1 acceptance noticed these orphan rows accumulating (broken_ref count
+  // = 17 expected vs actual 15 — 2 extras from old integ runs). Clean up here.
+  afterAll(async () => {
+    const pool = getPool();
+    await pool.query("DELETE FROM panorama_broken_ref WHERE build_id LIKE 'integ-%'");
+    await pool.query("DELETE FROM panorama_build_meta WHERE build_id LIKE 'integ-%'");
+    await closePool();
+  });
 
   it('runs end-to-end on combined fixtures and produces queryable results', async () => {
     const knowledgeOut = await ingestKnowledge({
