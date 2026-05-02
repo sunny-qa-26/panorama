@@ -87,4 +87,30 @@ describe('GET /api/node/{type}/{id}', () => {
     }
     expect(foundCalls).toBe(true);
   });
+
+  it('returns redis node with keyPattern + sourceRepo', async () => {
+    // Redis ingestion only finds 5 string-literal keys (most use variables);
+    // all currently start with "task_" / "redelegate" / "tempRedelegate" / "transactionMonitor".
+    const candidates = (await search('task', ['redis']))
+      .concat(await search('redelegate', ['redis']))
+      .concat(await search('transactionMonitor', ['redis']));
+    if (candidates.length === 0) return; // skip if no redis data ingested
+    const detail = await fetchNodeDetail('redis', candidates[0]!.id);
+    expect(detail).not.toBeNull();
+    expect(detail!.type).toBe('redis');
+    expect(detail!.extra).toHaveProperty('keyPattern');
+    expect(detail!.extra).toHaveProperty('sourceRepo');
+  });
+
+  it('returns route node with appName + path + isLazy', async () => {
+    const routes = await search('dashboard', ['route']);
+    const pick = routes[0] ?? (await search('lista', ['route']))[0];
+    if (!pick) return; // skip if no route data
+    const detail = await fetchNodeDetail('route', pick.id);
+    expect(detail).not.toBeNull();
+    expect(detail!.type).toBe('route');
+    expect(detail!.extra).toHaveProperty('appName');
+    expect(detail!.extra).toHaveProperty('path');
+    expect(detail!.extra).toHaveProperty('isLazy');
+  });
 });
