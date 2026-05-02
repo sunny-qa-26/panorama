@@ -19,7 +19,21 @@ const STAGING_TABLES = [
   'panorama_doc_concept_rel',
   'panorama_code_ref',
   'panorama_ref_link',
-  'panorama_cron_job'
+  'panorama_cron_job',
+  // Phase 2 entity tables
+  'panorama_api_endpoint',
+  'panorama_entity',
+  'panorama_contract',
+  'panorama_frontend_route',
+  'panorama_redis_key',
+  // Phase 2 junctions
+  'panorama_cron_contract_call',
+  'panorama_api_contract_call',
+  'panorama_api_entity_op',
+  'panorama_cron_redis_op',
+  'panorama_api_redis_op',
+  'panorama_route_api_call',
+  'panorama_api_cron_call'
 ];
 
 interface ExistsRow extends RowDataPacket {}
@@ -87,6 +101,22 @@ interface CodeRefData { repo: string; filePath: string; lineNo?: number | null; 
 interface CronData { name: string; schedule?: string | null; jobId?: string | null;
                      repo: string; filePath: string; lineNo?: number | null;
                      handlerClass?: string | null; description?: string | null; confidence?: number; }
+interface ApiData { httpMethod: string; path: string; controller?: string | null;
+                    repo: string; filePath: string; lineNo?: number | null;
+                    authRequired?: number; description?: string | null;
+                    confidence?: number; }
+interface EntityData { tableName: string; repo: string; filePath: string;
+                       columns?: unknown; description?: string | null; }
+interface ContractData { name: string; address: string; chain: string;
+                         abiPath?: string | null; deployedAt?: string | null;
+                         notes?: string | null; }
+interface RouteData { appName: string; path: string; component?: string | null;
+                      repo: string; filePath: string; isLazy?: number;
+                      modulePath?: string | null; }
+interface RedisData { keyPattern: string; redisType?: string;
+                      ttlSeconds?: number | null; description?: string | null;
+                      sourceRepo: string; sourceFile: string; sourceLine?: number | null;
+                      confidence?: number; opTypes?: string[]; }
 
 async function populateStagingTables(pool: Pool, merged: MergedGraph) {
   // Step 1: insert domains and resolve parent_id by name.
@@ -196,6 +226,125 @@ async function populateStagingTables(pool: Pool, merged: MergedGraph) {
     cronIdByKey.set(c.key, res.insertId);
   }
 
+  // Step 6.1: APIs
+  const apis = merged.nodes.filter(n => n.type === 'api');
+  const apiIdByKey = new Map<string, number>();
+  for (const a of apis) {
+    const data = a.data as unknown as ApiData;
+    const auth = merged.edges.find(
+      e => e.sourceType === 'api' && e.sourceKey === a.key
+        && e.linkType === 'BELONGS_TO' && e.confidence >= 1.0
+    );
+    const heuristic = merged.edges.find(
+      e => e.sourceType === 'api' && e.sourceKey === a.key
+        && e.linkType === 'BELONGS_TO' && e.confidence < 1.0
+    );
+    const winner = auth ?? heuristic;
+    const domainId = winner ? domainIdByKey.get(winner.targetKey) ?? null : null;
+    const [res] = await pool.query<ResultSetHeader>(
+      `INSERT INTO panorama_api_endpoint_new
+        (domain_id, http_method, path, controller, repo, file_path, line_no, auth_required, description, confidence)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      [domainId, data.httpMethod, data.path, data.controller ?? null,
+       data.repo, data.filePath, data.lineNo ?? null,
+       data.authRequired ?? 0, data.description ?? null,
+       data.confidence ?? 1.0]
+    );
+    apiIdByKey.set(a.key, res.insertId);
+  }
+
+  // Step 6.2: Entities
+  const entities = merged.nodes.filter(n => n.type === 'entity');
+  const entityIdByKey = new Map<string, number>();
+  for (const ent of entities) {
+    const data = ent.data as unknown as EntityData;
+    const auth = merged.edges.find(
+      e => e.sourceType === 'entity' && e.sourceKey === ent.key
+        && e.linkType === 'BELONGS_TO' && e.confidence >= 1.0
+    );
+    const heuristic = merged.edges.find(
+      e => e.sourceType === 'entity' && e.sourceKey === ent.key
+        && e.linkType === 'BELONGS_TO' && e.confidence < 1.0
+    );
+    const winner = auth ?? heuristic;
+    const domainId = winner ? domainIdByKey.get(winner.targetKey) ?? null : null;
+    const [res] = await pool.query<ResultSetHeader>(
+      `INSERT INTO panorama_entity_new
+        (domain_id, table_name, repo, file_path, columns_json, description)
+       VALUES (?, ?, ?, ?, CAST(? AS JSON), ?)`,
+      [domainId, data.tableName, data.repo, data.filePath,
+       JSON.stringify(data.columns ?? []), data.description ?? null]
+    );
+    entityIdByKey.set(ent.key, res.insertId);
+  }
+
+  // Step 6.3: Contracts
+  const contracts = merged.nodes.filter(n => n.type === 'contract');
+  const contractIdByKey = new Map<string, number>();
+  for (const c of contracts) {
+    const data = c.data as unknown as ContractData;
+    const [res] = await pool.query<ResultSetHeader>(
+      `INSERT INTO panorama_contract_new
+        (name, address, chain, abi_path, deployed_at, notes)
+       VALUES (?, ?, ?, ?, ?, ?)`,
+      [data.name, data.address, data.chain, data.abiPath ?? null,
+       data.deployedAt ?? null, data.notes ?? null]
+    );
+    contractIdByKey.set(c.key, res.insertId);
+  }
+
+  // Step 6.4: Frontend Routes
+  const routes = merged.nodes.filter(n => n.type === 'route');
+  const routeIdByKey = new Map<string, number>();
+  for (const r of routes) {
+    const data = r.data as unknown as RouteData;
+    const auth = merged.edges.find(
+      e => e.sourceType === 'route' && e.sourceKey === r.key
+        && e.linkType === 'BELONGS_TO' && e.confidence >= 1.0
+    );
+    const heuristic = merged.edges.find(
+      e => e.sourceType === 'route' && e.sourceKey === r.key
+        && e.linkType === 'BELONGS_TO' && e.confidence < 1.0
+    );
+    const winner = auth ?? heuristic;
+    const domainId = winner ? domainIdByKey.get(winner.targetKey) ?? null : null;
+    const [res] = await pool.query<ResultSetHeader>(
+      `INSERT INTO panorama_frontend_route_new
+        (domain_id, app_name, path, component, repo, file_path, is_lazy)
+       VALUES (?, ?, ?, ?, ?, ?, ?)`,
+      [domainId, data.appName, data.path, data.component ?? null,
+       data.repo, data.filePath, data.isLazy ?? 0]
+    );
+    routeIdByKey.set(r.key, res.insertId);
+  }
+
+  // Step 6.5: Redis keys
+  const redisKeys = merged.nodes.filter(n => n.type === 'redis');
+  const redisIdByKey = new Map<string, number>();
+  for (const rk of redisKeys) {
+    const data = rk.data as unknown as RedisData;
+    const auth = merged.edges.find(
+      e => e.sourceType === 'redis' && e.sourceKey === rk.key
+        && e.linkType === 'BELONGS_TO' && e.confidence >= 1.0
+    );
+    const heuristic = merged.edges.find(
+      e => e.sourceType === 'redis' && e.sourceKey === rk.key
+        && e.linkType === 'BELONGS_TO' && e.confidence < 1.0
+    );
+    const winner = auth ?? heuristic;
+    const domainId = winner ? domainIdByKey.get(winner.targetKey) ?? null : null;
+    const [res] = await pool.query<ResultSetHeader>(
+      `INSERT INTO panorama_redis_key_new
+        (domain_id, key_pattern, redis_type, ttl_seconds, description, source_repo, source_file, source_line, confidence)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      [domainId, data.keyPattern, (data.redisType ?? 'unknown'),
+       data.ttlSeconds ?? null, data.description ?? null,
+       data.sourceRepo, data.sourceFile, data.sourceLine ?? null,
+       data.confidence ?? 0.7]
+    );
+    redisIdByKey.set(rk.key, res.insertId);
+  }
+
   // Step 7: ref_link — generic relations.
   const polyId = (type: NodeKind, key: string): number | null => {
     if (type === 'domain') return domainIdByKey.get(key) ?? null;
@@ -203,6 +352,11 @@ async function populateStagingTables(pool: Pool, merged: MergedGraph) {
     if (type === 'concept') return conceptIdByKey.get(key) ?? null;
     if (type === 'code_ref') return codeRefIdByKey.get(key) ?? null;
     if (type === 'cron') return cronIdByKey.get(key) ?? null;
+    if (type === 'api') return apiIdByKey.get(key) ?? null;
+    if (type === 'entity') return entityIdByKey.get(key) ?? null;
+    if (type === 'contract') return contractIdByKey.get(key) ?? null;
+    if (type === 'route') return routeIdByKey.get(key) ?? null;
+    if (type === 'redis') return redisIdByKey.get(key) ?? null;
     return null;
   };
   for (const e of merged.edges) {
@@ -216,6 +370,75 @@ async function populateStagingTables(pool: Pool, merged: MergedGraph) {
       [e.sourceType, sId, e.targetType, tId, e.linkType, e.confidence,
        JSON.stringify(e.meta ?? {})]
     );
+  }
+
+  // Step 8: Junction tables
+  for (const e of merged.edges) {
+    // api → cron via callCronApi → panorama_api_cron_call
+    if (e.sourceType === 'api' && e.targetType === 'cron' && e.linkType === 'CALLS') {
+      const aId = apiIdByKey.get(e.sourceKey);
+      const cId = cronIdByKey.get(e.targetKey);
+      if (aId && cId) {
+        const meta = (e.meta ?? {}) as { callPath?: string };
+        await pool.query(
+          `INSERT IGNORE INTO panorama_api_cron_call_new (api_id, cron_id, call_path) VALUES (?, ?, ?)`,
+          [aId, cId, meta.callPath ?? null]
+        );
+      }
+      continue;
+    }
+    // route → api → panorama_route_api_call
+    if (e.sourceType === 'route' && e.targetType === 'api' && e.linkType === 'CALLS') {
+      const rId = routeIdByKey.get(e.sourceKey);
+      const aId = apiIdByKey.get(e.targetKey);
+      if (rId && aId) {
+        await pool.query(
+          `INSERT IGNORE INTO panorama_route_api_call_new (route_id, api_id) VALUES (?, ?)`,
+          [rId, aId]
+        );
+      }
+      continue;
+    }
+    // api → entity (READS_WRITES) → panorama_api_entity_op
+    if (e.sourceType === 'api' && e.targetType === 'entity' && e.linkType === 'READS_WRITES') {
+      const aId = apiIdByKey.get(e.sourceKey);
+      const entId = entityIdByKey.get(e.targetKey);
+      if (aId && entId) {
+        await pool.query(
+          `INSERT IGNORE INTO panorama_api_entity_op_new (api_id, entity_id, op_type) VALUES (?, ?, 'BOTH')`,
+          [aId, entId]
+        );
+      }
+      continue;
+    }
+    // {cron|api} → redis (CALLS) → panorama_{cron|api}_redis_op
+    if (e.targetType === 'redis' && e.linkType === 'CALLS') {
+      const meta = (e.meta ?? {}) as { resource?: string; opTypes?: string[] };
+      if (meta.resource !== 'redis') continue;
+      const opTypes = meta.opTypes ?? ['BOTH'];
+      const op = opTypes.length > 1 ? 'BOTH' : (opTypes[0] ?? 'BOTH');
+      const redisId = redisIdByKey.get(e.targetKey);
+      if (!redisId) continue;
+      if (e.sourceType === 'cron') {
+        const cId = cronIdByKey.get(e.sourceKey);
+        if (cId) {
+          await pool.query(
+            `INSERT IGNORE INTO panorama_cron_redis_op_new (cron_id, redis_id, op_type) VALUES (?, ?, ?)`,
+            [cId, redisId, op]
+          );
+        }
+      } else if (e.sourceType === 'api') {
+        const aId = apiIdByKey.get(e.sourceKey);
+        if (aId) {
+          await pool.query(
+            `INSERT IGNORE INTO panorama_api_redis_op_new (api_id, redis_id, op_type) VALUES (?, ?, ?)`,
+            [aId, redisId, op]
+          );
+        }
+      }
+      continue;
+    }
+    // cron_contract_call and api_contract_call: not actively emitted in Phase 2 — leave cases empty
   }
 }
 
