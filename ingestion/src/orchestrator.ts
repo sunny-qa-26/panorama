@@ -28,12 +28,38 @@ export function runOrchestrator(outputs: IngestorOutput[]): MergedGraph {
     }
   }
 
-  // 2. Build lookups for Strategy A.
+  // 2. Build lookups for Strategy A — generalised to ALL file-bearing entity types
+  //    (cron / api / entity / route / redis). Originally Strategy A only emitted
+  //    cron→domain edges, which left e.g. lista-holder.md's reference to
+  //    listaHolderProtectionLog.entity.ts un-honoured (the entity ended up with
+  //    domain_id=NULL because the entity ingestor's path-prefix heuristic looks
+  //    at src/entity/{module}/ which is 'lista' not 'lista-holder').
   const docToDomain = new Map<string, string>();
   const docToCodeRefs = new Map<string, string[]>();
-  // Index crons two ways: by (repo, file) for fallback, and by (repo, file, line) for precision.
-  const cronByLoc = new Map<string, IngestorNode[]>();
-  const cronByLocLine = new Map<string, IngestorNode>();
+  /** All file-bearing nodes indexed by `${repo}:${filePath}`. */
+  const nodesByLoc = new Map<string, IngestorNode[]>();
+  /** Same nodes indexed by `${repo}:${filePath}:${lineNo}` for precision matches. */
+  const nodesByLocLine = new Map<string, IngestorNode>();
+
+  /** Extract (repo, filePath, lineNo?) from any node type that lives in a code file.
+   *  redis nodes use a different field shape (sourceRepo / sourceFile / sourceLine). */
+  function extractLoc(n: IngestorNode): { repo?: string; filePath?: string; lineNo?: number } {
+    const d = n.data as Record<string, unknown>;
+    if (n.type === 'redis') {
+      return {
+        repo: typeof d.sourceRepo === 'string' ? d.sourceRepo : undefined,
+        filePath: typeof d.sourceFile === 'string' ? d.sourceFile : undefined,
+        lineNo: typeof d.sourceLine === 'number' ? d.sourceLine : undefined
+      };
+    }
+    return {
+      repo: typeof d.repo === 'string' ? d.repo : undefined,
+      filePath: typeof d.filePath === 'string' ? d.filePath : undefined,
+      lineNo: typeof d.lineNo === 'number' ? d.lineNo : undefined
+    };
+  }
+
+  const FILE_BEARING_TYPES = new Set<NodeKind>(['cron', 'api', 'entity', 'route', 'redis']);
 
   for (const o of outputs) {
     for (const e of o.edges) {
@@ -46,16 +72,15 @@ export function runOrchestrator(outputs: IngestorOutput[]): MergedGraph {
       }
     }
     for (const n of o.nodes) {
-      if (n.type === 'cron') {
-        const data = n.data as { repo?: string; filePath?: string; lineNo?: number | null };
-        if (!data.repo || !data.filePath) continue;
-        const k = `${data.repo}:${data.filePath}`;
-        const arr = cronByLoc.get(k) ?? [];
-        arr.push(n);
-        cronByLoc.set(k, arr);
-        if (typeof data.lineNo === 'number') {
-          cronByLocLine.set(`${k}:${data.lineNo}`, n);
-        }
+      if (!FILE_BEARING_TYPES.has(n.type)) continue;
+      const loc = extractLoc(n);
+      if (!loc.repo || !loc.filePath) continue;
+      const k = `${loc.repo}:${loc.filePath}`;
+      const arr = nodesByLoc.get(k) ?? [];
+      arr.push(n);
+      nodesByLoc.set(k, arr);
+      if (typeof loc.lineNo === 'number') {
+        nodesByLocLine.set(`${k}:${loc.lineNo}`, n);
       }
     }
   }
@@ -64,11 +89,12 @@ export function runOrchestrator(outputs: IngestorOutput[]): MergedGraph {
   const edges: IngestorEdge[] = [];
   for (const o of outputs) edges.push(...o.edges);
 
-  // 4. Strategy A: emit authoritative cron → domain edges.
-  //    Match by (repo, file, lineNo) when the doc reference includes a line number;
-  //    fall back to (repo, file) only when lineNo is omitted in the doc reference.
-  //    This prevents the "god-file blast radius" bug where a single doc reference
-  //    to one cron in a 157-cron service would attribute all 157 to that doc's domain.
+  // 4. Strategy A: emit authoritative {nodeType}→domain edges via doc REFERENCES.
+  //    For EACH file-bearing entity type at the referenced location:
+  //    - With lineNo: exact match within ±NEAR_LINE_RANGE
+  //    - Without lineNo: only attach when ≤2 nodes of the same type live in that
+  //      file (god-file guard — customtask.service.ts has 157 crons; one
+  //      reference must not authoritatively claim all of them).
   const NEAR_LINE_RANGE = 5;
   for (const [docKey, codeRefKeys] of docToCodeRefs) {
     const domainKey = docToDomain.get(docKey);
@@ -86,27 +112,28 @@ export function runOrchestrator(outputs: IngestorOutput[]): MergedGraph {
 
       const matched: IngestorNode[] = [];
       if (Number.isFinite(refLineNo)) {
-        // Precise match: cron whose own decorator line is within ±NEAR_LINE_RANGE of the ref line.
         for (let delta = 0; delta <= NEAR_LINE_RANGE; delta++) {
-          const exact = cronByLocLine.get(`${locKey}:${refLineNo}`);
-          if (exact) { matched.push(exact); break; }
-          const above = cronByLocLine.get(`${locKey}:${refLineNo - delta}`);
-          if (above) { matched.push(above); break; }
-          const below = cronByLocLine.get(`${locKey}:${refLineNo + delta}`);
-          if (below) { matched.push(below); break; }
+          const hit = nodesByLocLine.get(`${locKey}:${refLineNo - delta}`)
+                   ?? nodesByLocLine.get(`${locKey}:${refLineNo + delta}`);
+          if (hit) { matched.push(hit); break; }
         }
       } else {
-        // No lineNo in the doc reference. Be conservative: only attach when the
-        // file has at most 2 cron handlers — otherwise we'd blast a god-file
-        // (e.g. customtask.service.ts has 157 handlers; one doc reference must
-        // not authoritatively claim all of them for one domain).
-        const candidates = cronByLoc.get(locKey) ?? [];
-        if (candidates.length <= 2) matched.push(...candidates);
+        // No lineNo: attach all candidates UNLESS the file is a god-file for any one type.
+        const candidates = nodesByLoc.get(locKey) ?? [];
+        const byType = new Map<NodeKind, IngestorNode[]>();
+        for (const c of candidates) {
+          const arr = byType.get(c.type) ?? [];
+          arr.push(c);
+          byType.set(c.type, arr);
+        }
+        for (const [, arr] of byType) {
+          if (arr.length <= 2) matched.push(...arr);
+        }
       }
 
-      for (const cronNode of matched) {
+      for (const node of matched) {
         edges.push({
-          sourceType: 'cron' as NodeKind, sourceKey: cronNode.key,
+          sourceType: node.type, sourceKey: node.key,
           targetType: 'domain' as NodeKind, targetKey: domainKey,
           linkType: 'BELONGS_TO', confidence: 1.0,
           meta: { strategy: 'A-doc-coderef', viaDoc: docKey, viaCodeRef: refKey }
