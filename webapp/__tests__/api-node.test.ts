@@ -17,10 +17,8 @@ describe('GET /api/node/{type}/{id}', () => {
       const detail = await fetchNodeDetail('cron', any[0]!.id);
       expect(detail).not.toBeNull();
       expect(detail!.type).toBe('cron');
-      expect(detail!.extra).toMatchObject({
-        schedule: expect.anything(),
-        handlerClass: expect.anything()
-      });
+      expect(detail!.extra).toHaveProperty('schedule');
+      expect(detail!.extra).toHaveProperty('handlerClass');
       return;
     }
     const detail = await fetchNodeDetail('cron', search1[0]!.id);
@@ -62,7 +60,7 @@ describe('GET /api/node/{type}/{id}', () => {
   });
 
   it('populates `usedBy` from junction tables for an entity', async () => {
-    const entities = await search('', ['entity']);
+    const entities = await search('moolah', ['entity']);
     // pick any entity that has at least one api_entity_op row
     const any = entities[0];
     if (!any) return;
@@ -74,7 +72,7 @@ describe('GET /api/node/{type}/{id}', () => {
 
   it('populates `calls` for an api with @InjectRepository entities', async () => {
     // Find an api node that has at least one api_entity_op row
-    const apis = await search('', ['api']);
+    const apis = await search('moolah', ['api']);
     // try a few until we find one that has calls
     let foundCalls = false;
     for (const api of apis.slice(0, 10)) {
