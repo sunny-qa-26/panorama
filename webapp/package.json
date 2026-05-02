@@ -13,9 +13,11 @@
   },
   "dependencies": {
     "@radix-ui/react-dialog": "^1.1.15",
+    "@types/dagre": "^0.7.54",
     "autoprefixer": "^10.4.19",
     "clsx": "^2.1.1",
     "cmdk": "^1.1.1",
+    "dagre": "^0.8.5",
     "marked": "^14.0.0",
     "mermaid": "^10.9.1",
     "mysql2": "^3.11.0",
@@ -24,6 +26,7 @@
     "react": "18.3.1",
     "react-arborist": "^3.4.0",
     "react-dom": "18.3.1",
+    "reactflow": "^11.11.4",
     "server-only": "^0.0.1",
     "tailwindcss": "^3.4.7"
   },
