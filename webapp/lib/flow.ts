@@ -297,6 +297,31 @@ export async function buildFlow(domainId: number): Promise<FlowGraph> {
     }
   }
 
+  // Phase 2.5: route → contract via ContractNames scan
+  // Pull edges where the route is in this domain OR the contract is reached
+  // via this domain's routes. Contracts are domain-less in the schema, so we
+  // also surface adjacent contracts for the chart.
+  if (routes.length > 0) {
+    const [rows] = await pool.query<RowDataPacket[]>(
+      `SELECT j.route_id AS routeId, j.contract_id AS contractId
+       FROM panorama_route_contract_call j WHERE j.route_id IN (?)`,
+      [routes.map((r) => r.id)]
+    );
+    // Pull in any contracts the routes in this domain reach (adjacent contracts).
+    const adjContractIds = new Set<number>();
+    for (const r of rows) adjContractIds.add(Number(r.contractId));
+    if (adjContractIds.size > 0) {
+      const [contractRows] = await pool.query<DomainContractRow[]>(
+        `SELECT id, name, address, chain FROM panorama_contract WHERE id IN (?)`,
+        [[...adjContractIds]]
+      );
+      for (const c of contractRows) push('contract', Number(c.id), c.name, c.address, 1.0);
+    }
+    for (const r of rows) {
+      addEdge('ui', Number(r.routeId), 'contract', Number(r.contractId), null, 0.6);
+    }
+  }
+
   // Phase 2.5: cron → entity (cron writes/reads tables via Repository<X>).
   // Use the union sets (cronById / entityById) so both direct and adjacent
   // nodes surface the edges.

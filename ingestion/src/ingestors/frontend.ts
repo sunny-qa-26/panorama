@@ -1,6 +1,6 @@
 import { Project, SyntaxKind, type ObjectLiteralExpression, type ArrayLiteralExpression, type CallExpression } from 'ts-morph';
 import { join, posix } from 'node:path';
-import { readdir, stat } from 'node:fs/promises';
+import { readdir, readFile, stat } from 'node:fs/promises';
 import type { IngestorNode, IngestorEdge, IngestorOutput } from '../types.js';
 
 interface Opts { monoRoot: string; }
@@ -108,6 +108,38 @@ async function listAppRouters(monoRoot: string): Promise<{ appName: string; abs:
   return out;
 }
 
+// Phase 2.5 step 2: scan a module directory for `ContractNames.X` references.
+// `@lista/onchain` exposes ContractNames as an enum where the member names
+// match panorama_contract.name (e.g. ContractNames.MoolahVault → "MoolahVault").
+// The orchestrator resolves the enum names against contract nodes and emits
+// route→contract edges.
+const CONTRACT_NAME_RE = /\bContractNames\.([A-Za-z_][A-Za-z0-9_]*)/g;
+
+async function scanContractNamesIn(dir: string): Promise<Set<string>> {
+  const found = new Set<string>();
+  async function go(d: string) {
+    const entries = await readdir(d, { withFileTypes: true }).catch(() => []);
+    for (const e of entries) {
+      if (e.name.startsWith('.')) continue;
+      const full = join(d, e.name);
+      if (e.isDirectory()) {
+        if (e.name === 'node_modules' || e.name === '__tests__' || e.name === 'dist') continue;
+        await go(full);
+      } else if (e.isFile() && /\.(tsx?|jsx?)$/.test(e.name)) {
+        const txt = await readFile(full, 'utf8').catch(() => null);
+        if (!txt) continue;
+        CONTRACT_NAME_RE.lastIndex = 0;
+        let m: RegExpExecArray | null;
+        while ((m = CONTRACT_NAME_RE.exec(txt)) !== null) {
+          if (m[1]) found.add(m[1]);
+        }
+      }
+    }
+  }
+  await go(dir);
+  return found;
+}
+
 export async function ingestFrontend(opts: Opts): Promise<IngestorOutput> {
   const project = new Project({ skipAddingFilesFromTsConfig: true, compilerOptions: { jsx: 4, target: 99 } });
   const nodes: IngestorNode[] = [];
@@ -154,5 +186,37 @@ export async function ingestFrontend(opts: Opts): Promise<IngestorOutput> {
     });
     project.removeSourceFile(sf);
   }
+
+  // Phase 2.5 step 2: for every module dir referenced by a route's modulePath,
+  // scan all source files for `ContractNames.X`. Cache per dir so we don't
+  // rescan when multiple routes point at the same module. Emit placeholder
+  // edges with target `enum:X`; the orchestrator resolves to real contracts.
+  const moduleDirByRoute = new Map<string, string>(); // routeKey → absolute module dir
+  for (const n of nodes) {
+    if (n.type !== 'route') continue;
+    const data = n.data as { appName: string; modulePath?: string | null };
+    if (!data.modulePath) continue;
+    // '@/modules/dashboard/page' → 'modules/dashboard'
+    const m = data.modulePath.match(/^@\/(modules\/[^/]+)/);
+    if (!m || !m[1]) continue;
+    moduleDirByRoute.set(n.key, join(opts.monoRoot, 'apps', data.appName, 'src', m[1]));
+  }
+  const dirCache = new Map<string, Set<string>>();
+  for (const [routeKey, moduleDir] of moduleDirByRoute) {
+    let names = dirCache.get(moduleDir);
+    if (!names) {
+      names = await scanContractNamesIn(moduleDir);
+      dirCache.set(moduleDir, names);
+    }
+    for (const enumName of names) {
+      edges.push({
+        sourceType: 'route', sourceKey: routeKey,
+        targetType: 'contract', targetKey: `enum:${enumName}`,
+        linkType: 'CALLS', confidence: 0.6,
+        meta: { strategy: 'contractNames-scan', enumMember: enumName }
+      });
+    }
+  }
+
   return { ingestor: 'frontend', nodes, edges, brokenRefs: [] };
 }

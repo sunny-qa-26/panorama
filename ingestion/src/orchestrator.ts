@@ -390,6 +390,37 @@ export function runOrchestrator(outputs: IngestorOutput[]): MergedGraph {
     });
   }
 
+  // Phase 2.5 step 2: resolve route→contract `enum:X` placeholder edges
+  // emitted by the frontend ingestor against real contract nodes. Match by
+  // case-insensitive prefix (lista-mono uses `ContractNames.MoolahVault` to
+  // address contracts named "MoolahVault (U)" / "MoolahVault (BTCB)" etc.).
+  const contractsByPrefix = new Map<string, IngestorNode[]>();
+  for (const n of nodeMap.values()) {
+    if (n.type !== 'contract') continue;
+    const data = n.data as { name: string };
+    // strip parenthetical suffix and lowercase: "MoolahVault (U)" → "moolahvault"
+    const prefix = data.name.replace(/\s*\(.*\)\s*$/, '').toLowerCase();
+    const arr = contractsByPrefix.get(prefix) ?? [];
+    arr.push(n);
+    contractsByPrefix.set(prefix, arr);
+  }
+  const enumEdgesToResolve = edges.filter(
+    (e) => e.sourceType === 'route' && e.targetType === 'contract' && typeof e.targetKey === 'string' && e.targetKey.startsWith('enum:')
+  );
+  for (const e of enumEdgesToResolve) {
+    const enumName = e.targetKey.slice('enum:'.length).toLowerCase();
+    const matches = contractsByPrefix.get(enumName);
+    if (!matches) continue;
+    for (const c of matches) {
+      edges.push({
+        sourceType: 'route', sourceKey: e.sourceKey,
+        targetType: 'contract', targetKey: c.key,
+        linkType: 'CALLS', confidence: e.confidence,
+        meta: { ...(e.meta ?? {}), resolvedFrom: e.targetKey }
+      });
+    }
+  }
+
   // 9. brokenRefs union.
   const brokenRefs: BrokenRef[] = [];
   for (const o of outputs) brokenRefs.push(...o.brokenRefs);

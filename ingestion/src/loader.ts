@@ -35,7 +35,9 @@ const STAGING_TABLES = [
   'panorama_route_api_call',
   'panorama_api_cron_call',
   // Phase 2.5: cron→entity junction added to populate flow chart edges.
-  'panorama_cron_entity_op'
+  'panorama_cron_entity_op',
+  // Phase 2.5 step 2: route→contract junction for ContractNames-based scan.
+  'panorama_route_contract_call'
 ];
 
 interface ExistsRow extends RowDataPacket {}
@@ -391,6 +393,20 @@ async function populateStagingTables(pool: Pool, merged: MergedGraph) {
         await pool.query(
           `INSERT IGNORE INTO panorama_cron_entity_op_new (cron_id, entity_id, op_type) VALUES (?, ?, 'BOTH')`,
           [cId, entId]
+        );
+      }
+      continue;
+    }
+    // Phase 2.5 step 2: route → contract (CALLS) → panorama_route_contract_call.
+    // Skip placeholder enum:X edges; only resolved edges have real contract keys.
+    if (e.sourceType === 'route' && e.targetType === 'contract' && e.linkType === 'CALLS'
+        && typeof e.targetKey === 'string' && !e.targetKey.startsWith('enum:')) {
+      const rId = routeIdByKey.get(e.sourceKey);
+      const cId = contractIdByKey.get(e.targetKey);
+      if (rId && cId) {
+        await pool.query(
+          `INSERT IGNORE INTO panorama_route_contract_call_new (route_id, contract_id) VALUES (?, ?)`,
+          [rId, cId]
         );
       }
       continue;
