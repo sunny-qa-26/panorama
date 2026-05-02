@@ -2,6 +2,7 @@ import './globals.css';
 import type { Metadata } from 'next';
 import BusinessTree from '@/components/BusinessTree';
 import { SyncIndicator } from '@/components/SyncIndicator';
+import { CommandPalette } from '@/components/CommandPalette';
 
 export const metadata: Metadata = { title: 'Panorama', description: 'Lista DAO 业务全景图' };
 
@@ -13,6 +14,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           <header className="h-12 border-b border-bg-3 px-4 flex items-center gap-4 bg-bg-1">
             <span className="font-semibold">Panorama</span>
             <SyncIndicator />
+            <span className="ml-auto text-xs text-text-3 font-mono">⌘K to search</span>
           </header>
           <div className="flex flex-1 overflow-hidden">
             <aside className="w-80 bg-bg-1 border-r border-bg-3 overflow-y-auto">
@@ -22,6 +24,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
             <main className="flex-1 overflow-y-auto p-6">{children}</main>
           </div>
         </div>
+        <CommandPalette />
       </body>
     </html>
   );
