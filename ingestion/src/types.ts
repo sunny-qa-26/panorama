@@ -14,7 +14,7 @@ export interface IngestorEdge {
   sourceKey: string;
   targetType: NodeKind;
   targetKey: string;
-  linkType: 'DESCRIBES' | 'REFERENCES' | 'BELONGS_TO' | 'MENTIONS';
+  linkType: 'DESCRIBES' | 'REFERENCES' | 'BELONGS_TO' | 'MENTIONS' | 'CALLS' | 'READS_WRITES';
   confidence: number;       // 0..1
   meta?: Record<string, unknown>;
 }
