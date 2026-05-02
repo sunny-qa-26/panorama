@@ -65,7 +65,18 @@ async function clean() {
   }
 }
 
-describe('loader', () => {
+/**
+ * DESTRUCTIVE: clean() deletes all production rows; loadGraph swaps in
+ * fixture data via RENAME TABLE. After this test the panorama_* tables
+ * hold tiny fixture data, not the real ingest. You must `pnpm run rebuild`
+ * to restore real data afterwards.
+ *
+ * Set `ENABLE_DESTRUCTIVE_TESTS=1` to opt in.
+ */
+const RUN_DESTRUCTIVE = process.env.ENABLE_DESTRUCTIVE_TESTS === '1';
+const describeDestructive = RUN_DESTRUCTIVE ? describe : describe.skip;
+
+describeDestructive('loader [DESTRUCTIVE]', () => {
   beforeEach(clean);
   afterAll(closePool);
 

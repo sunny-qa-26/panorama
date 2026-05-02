@@ -13,10 +13,23 @@ interface CronDomainRow extends RowDataPacket {
   domain: string | null;
 }
 
-describe('full pipeline (knowledge + cron → MySQL)', () => {
-  // Pipeline tests insert build_meta + broken_ref rows keyed `integ-${ts}`.
-  // Phase 1 acceptance noticed these orphan rows accumulating (broken_ref count
-  // = 17 expected vs actual 15 — 2 extras from old integ runs). Clean up here.
+/**
+ * THIS TEST IS DESTRUCTIVE: it calls loader.loadGraph with fixture data,
+ * which calls swapStagingTables — atomically replacing the production
+ * panorama_* tables with the tiny test fixture (2 domains, 1 cron, etc).
+ *
+ * Running this test wipes a real Panorama rebuild. Phase 1 acceptance
+ * documented this as the "shared-DB race"; Task 54 partially fixed it
+ * but only this test is the truly destructive one.
+ *
+ * Default: SKIPPED. Set `ENABLE_DESTRUCTIVE_TESTS=1` to opt in.
+ *
+ * After running, you MUST `pnpm run rebuild` to restore real data.
+ */
+const RUN_DESTRUCTIVE = process.env.ENABLE_DESTRUCTIVE_TESTS === '1';
+const describeDestructive = RUN_DESTRUCTIVE ? describe : describe.skip;
+
+describeDestructive('full pipeline (knowledge + cron → MySQL) [DESTRUCTIVE]', () => {
   afterAll(async () => {
     const pool = getPool();
     await pool.query("DELETE FROM panorama_broken_ref WHERE build_id LIKE 'integ-%'");
