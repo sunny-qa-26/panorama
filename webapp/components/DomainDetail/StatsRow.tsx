@@ -1,4 +1,11 @@
-import type { DomainStats } from '@/lib/domain';
+interface Counts {
+  cron: number;
+  api: number;
+  contract: number;
+  db: number;
+  redis: number;
+  ui: number;
+}
 
 interface Stat {
   label: string;
@@ -6,12 +13,12 @@ interface Stat {
   color: string;
 }
 
-export function StatsRow({ stats }: { stats: DomainStats }) {
+export function StatsRow({ counts }: { counts: Counts }) {
   const cards: Stat[] = [
-    { label: 'Cron Jobs', value: stats.cronCount, color: 'border-type-cron' },
-    { label: 'API Endpoints', value: stats.apiCount, color: 'border-type-api' },
-    { label: 'Contracts', value: stats.contractCount, color: 'border-type-contract' },
-    { label: 'Storage Keys', value: stats.storageCount, color: 'border-type-db' }
+    { label: 'Cron Jobs', value: counts.cron, color: 'border-type-cron' },
+    { label: 'API Endpoints', value: counts.api, color: 'border-type-api' },
+    { label: 'Contracts', value: counts.contract, color: 'border-type-contract' },
+    { label: 'Storage Keys', value: counts.db + counts.redis, color: 'border-type-db' }
   ];
   return (
     <div className="grid grid-cols-4 gap-3 mb-6">

@@ -1,5 +1,5 @@
 import { notFound } from 'next/navigation';
-import { fetchDomainDetail } from '@/lib/domain';
+import { fetchDomainDetail, fetchDomainExtras } from '@/lib/domain';
 import { loadMarkdown } from '@/lib/markdown';
 import { HeroBlock } from '@/components/DomainDetail/HeroBlock';
 import { StatsRow } from '@/components/DomainDetail/StatsRow';
@@ -13,6 +13,7 @@ export default async function DomainPage({ params }: { params: { id: string } })
   if (Number.isNaN(id)) notFound();
   const detail = await fetchDomainDetail(id);
   if (!detail) notFound();
+  const extras = await fetchDomainExtras(id);
 
   let body: { html: string; mermaidBlocks: string[] } | null = null;
   const firstDoc = detail.docs[0];
@@ -20,11 +21,27 @@ export default async function DomainPage({ params }: { params: { id: string } })
     body = await loadMarkdown(firstDoc.bodyMdPath).catch(() => null);
   }
 
+  const counts = {
+    cron: detail.crons.length,
+    api: extras.apis.length,
+    contract: extras.contracts.length,
+    db: extras.entities.length,
+    redis: extras.redisKeys.length,
+    ui: extras.routes.length
+  };
+
   return (
     <article>
       <HeroBlock detail={detail} />
-      <StatsRow stats={detail.stats} />
-      <ImplementationTabs crons={detail.crons} />
+      <StatsRow counts={counts} />
+      <ImplementationTabs
+        crons={detail.crons}
+        apis={extras.apis}
+        contracts={extras.contracts}
+        entities={extras.entities}
+        redisKeys={extras.redisKeys}
+        routes={extras.routes}
+      />
       {body && <KnowledgeMermaid html={body.html} mermaidBlocks={body.mermaidBlocks} />}
     </article>
   );
