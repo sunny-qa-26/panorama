@@ -62,10 +62,43 @@ function extractDescription(method: MethodDeclaration): string | null {
   return cleaned || null;
 }
 
+/** Extract entity class names referenced via TypeORM patterns:
+ *   - constructor: @InjectRepository(EntityName) repo: Repository<EntityName>
+ *   - field types: Repository<EntityName>
+ *   - manager.getRepository(EntityName) calls
+ * Mirrors the api ingestor's pattern; lets the orchestrator emit
+ * cron→entity READS_WRITES edges. */
+function extractRepositories(cls: ClassDeclaration): string[] {
+  const names = new Set<string>();
+  const ctor = cls.getConstructors()[0];
+  if (ctor) {
+    for (const p of ctor.getParameters()) {
+      for (const dec of p.getDecorators()) {
+        if (dec.getName() !== 'InjectRepository') continue;
+        const args = dec.getArguments();
+        const first = args[0];
+        if (!first) continue;
+        names.add(first.getText());
+      }
+    }
+  }
+  cls.forEachDescendant((node) => {
+    if (node.getKind() !== SyntaxKind.TypeReference) return;
+    const t = node.asKindOrThrow(SyntaxKind.TypeReference);
+    if (t.getTypeName().getText() !== 'Repository') return;
+    const args = t.getTypeArguments();
+    const first = args[0];
+    if (!first) return;
+    names.add(first.getText());
+  });
+  return [...names];
+}
+
 function processClass(cls: ClassDeclaration, repo: string, filePath: string): { nodes: IngestorNode[]; edges: IngestorEdge[] } {
   const nodes: IngestorNode[] = [];
   const edges: IngestorEdge[] = [];
   const handlerClass = cls.getName() ?? '';
+  const repositories = extractRepositories(cls);
 
   for (const method of cls.getMethods()) {
     for (const dec of method.getDecorators()) {
@@ -89,7 +122,8 @@ function processClass(cls: ClassDeclaration, repo: string, filePath: string): { 
           repo, filePath, lineNo,
           handlerClass,
           description: extractDescription(method),
-          confidence: 1.0
+          confidence: 1.0,
+          repositories
         }
       });
 

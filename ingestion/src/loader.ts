@@ -33,7 +33,9 @@ const STAGING_TABLES = [
   'panorama_cron_redis_op',
   'panorama_api_redis_op',
   'panorama_route_api_call',
-  'panorama_api_cron_call'
+  'panorama_api_cron_call',
+  // Phase 2.5: cron→entity junction added to populate flow chart edges.
+  'panorama_cron_entity_op'
 ];
 
 interface ExistsRow extends RowDataPacket {}
@@ -377,6 +379,18 @@ async function populateStagingTables(pool: Pool, merged: MergedGraph) {
         await pool.query(
           `INSERT IGNORE INTO panorama_api_entity_op_new (api_id, entity_id, op_type) VALUES (?, ?, 'BOTH')`,
           [aId, entId]
+        );
+      }
+      continue;
+    }
+    // Phase 2.5: cron → entity (READS_WRITES) → panorama_cron_entity_op
+    if (e.sourceType === 'cron' && e.targetType === 'entity' && e.linkType === 'READS_WRITES') {
+      const cId = cronIdByKey.get(e.sourceKey);
+      const entId = entityIdByKey.get(e.targetKey);
+      if (cId && entId) {
+        await pool.query(
+          `INSERT IGNORE INTO panorama_cron_entity_op_new (cron_id, entity_id, op_type) VALUES (?, ?, 'BOTH')`,
+          [cId, entId]
         );
       }
       continue;

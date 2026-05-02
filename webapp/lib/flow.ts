@@ -159,6 +159,22 @@ export async function buildFlow(domainId: number): Promise<FlowGraph> {
   for (const a of apis) apiById.set(Number(a.id), a);
   for (const a of adjacentApisFromEntities) if (!apiById.has(Number(a.id))) apiById.set(Number(a.id), a);
 
+  // Phase 2.5: pull adjacent crons that write to this domain's entities even
+  // when the cron's own domain_id is different (e.g. a cron in 'customtask'
+  // module that writes to lista_holder_protection_log).
+  const [adjacentCronsFromEntities] = entities.length === 0
+    ? [[] as DomainCronRow[]]
+    : await pool.query<DomainCronRow[]>(
+        `SELECT DISTINCT c.id, c.name, c.confidence, c.description
+         FROM panorama_cron_entity_op j
+         JOIN panorama_cron_job c ON c.id = j.cron_id
+         WHERE j.entity_id IN (?)`,
+        [entities.map(e => Number(e.id))]
+      );
+  const cronById = new Map<number, DomainCronRow>();
+  for (const c of crons) cronById.set(Number(c.id), c);
+  for (const c of adjacentCronsFromEntities) if (!cronById.has(Number(c.id))) cronById.set(Number(c.id), c);
+
   // Contracts: those reachable through this domain's crons + apis (junctions empty in Phase 2).
   const [contracts] = await pool.query<DomainContractRow[]>(
     `SELECT DISTINCT c.id, c.name, c.address, c.chain
@@ -199,9 +215,9 @@ export async function buildFlow(domainId: number): Promise<FlowGraph> {
 
   for (const r of routes) push('ui', r.id, `${r.appName}: ${r.path}`, null, 1.0);
   for (const a of apiById.values()) push('api', Number(a.id), `${a.httpMethod} ${a.path}`, null, 1.0);
-  for (const c of crons) {
+  for (const c of cronById.values()) {
     const conf = typeof c.confidence === 'string' ? Number(c.confidence) : c.confidence;
-    push('cron', c.id, c.name, c.description, conf);
+    push('cron', Number(c.id), c.name, c.description, conf);
   }
   for (const c of contracts) push('contract', Number(c.id), c.name, c.address, 1.0);
   for (const e of entityById.values()) push('db', Number(e.id), e.tableName, null, 1.0);
@@ -278,6 +294,30 @@ export async function buildFlow(domainId: number): Promise<FlowGraph> {
     );
     for (const r of rows) {
       addEdge('cron', Number(r.cronId), 'contract', Number(r.contractId), r.methodName, 0.9);
+    }
+  }
+
+  // Phase 2.5: cron → entity (cron writes/reads tables via Repository<X>).
+  // Use the union sets (cronById / entityById) so both direct and adjacent
+  // nodes surface the edges.
+  if (cronById.size > 0) {
+    const [rows] = await pool.query<RowDataPacket[]>(
+      `SELECT j.cron_id AS cronId, j.entity_id AS entityId, j.op_type AS opType
+       FROM panorama_cron_entity_op j WHERE j.cron_id IN (?)`,
+      [[...cronById.keys()]]
+    );
+    for (const r of rows) {
+      addEdge('cron', Number(r.cronId), 'db', Number(r.entityId), String(r.opType), 0.8);
+    }
+  }
+  if (entityById.size > 0) {
+    const [rows] = await pool.query<RowDataPacket[]>(
+      `SELECT j.cron_id AS cronId, j.entity_id AS entityId, j.op_type AS opType
+       FROM panorama_cron_entity_op j WHERE j.entity_id IN (?)`,
+      [[...entityById.keys()]]
+    );
+    for (const r of rows) {
+      addEdge('cron', Number(r.cronId), 'db', Number(r.entityId), String(r.opType), 0.8);
     }
   }
 

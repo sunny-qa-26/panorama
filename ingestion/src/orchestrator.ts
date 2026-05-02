@@ -159,6 +159,7 @@ export function runOrchestrator(outputs: IngestorOutput[]): MergedGraph {
       entityByClassName.set(pascal, arr);
     }
   }
+  // api → entity (api ingestor extracts repositories via @InjectRepository).
   for (const o of outputs) {
     for (const n of o.nodes) {
       if (n.type !== 'api') continue;
@@ -169,6 +170,26 @@ export function runOrchestrator(outputs: IngestorOutput[]): MergedGraph {
         for (const ent of matches) {
           edges.push({
             sourceType: 'api', sourceKey: n.key,
+            targetType: 'entity', targetKey: ent.key,
+            linkType: 'READS_WRITES', confidence: 0.8,
+            meta: { strategy: 'repository-class-match' }
+          });
+        }
+      }
+    }
+    // Phase 2.5: cron → entity (cron ingestor now extracts repositories the
+    // same way). PRD §5.3 listed "Cron WRITES Entity" as a relationship type
+    // but Phase 2 only modelled api→entity, leaving the flow chart unable to
+    // draw lines between crons and the DB tables they touch.
+    for (const n of o.nodes) {
+      if (n.type !== 'cron') continue;
+      const data = n.data as { repositories?: string[] };
+      if (!data.repositories) continue;
+      for (const repoName of data.repositories) {
+        const matches = entityByClassName.get(repoName) ?? [];
+        for (const ent of matches) {
+          edges.push({
+            sourceType: 'cron', sourceKey: n.key,
             targetType: 'entity', targetKey: ent.key,
             linkType: 'READS_WRITES', confidence: 0.8,
             meta: { strategy: 'repository-class-match' }
