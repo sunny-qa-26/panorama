@@ -31,7 +31,9 @@ export function runOrchestrator(outputs: IngestorOutput[]): MergedGraph {
   // 2. Build lookups for Strategy A.
   const docToDomain = new Map<string, string>();
   const docToCodeRefs = new Map<string, string[]>();
+  // Index crons two ways: by (repo, file) for fallback, and by (repo, file, line) for precision.
   const cronByLoc = new Map<string, IngestorNode[]>();
+  const cronByLocLine = new Map<string, IngestorNode>();
 
   for (const o of outputs) {
     for (const e of o.edges) {
@@ -45,12 +47,15 @@ export function runOrchestrator(outputs: IngestorOutput[]): MergedGraph {
     }
     for (const n of o.nodes) {
       if (n.type === 'cron') {
-        const data = n.data as { repo?: string; filePath?: string };
+        const data = n.data as { repo?: string; filePath?: string; lineNo?: number | null };
         if (!data.repo || !data.filePath) continue;
         const k = `${data.repo}:${data.filePath}`;
         const arr = cronByLoc.get(k) ?? [];
         arr.push(n);
         cronByLoc.set(k, arr);
+        if (typeof data.lineNo === 'number') {
+          cronByLocLine.set(`${k}:${data.lineNo}`, n);
+        }
       }
     }
   }
@@ -60,6 +65,11 @@ export function runOrchestrator(outputs: IngestorOutput[]): MergedGraph {
   for (const o of outputs) edges.push(...o.edges);
 
   // 4. Strategy A: emit authoritative cron → domain edges.
+  //    Match by (repo, file, lineNo) when the doc reference includes a line number;
+  //    fall back to (repo, file) only when lineNo is omitted in the doc reference.
+  //    This prevents the "god-file blast radius" bug where a single doc reference
+  //    to one cron in a 157-cron service would attribute all 157 to that doc's domain.
+  const NEAR_LINE_RANGE = 5;
   for (const [docKey, codeRefKeys] of docToCodeRefs) {
     const domainKey = docToDomain.get(docKey);
     if (!domainKey) continue;
@@ -69,10 +79,32 @@ export function runOrchestrator(outputs: IngestorOutput[]): MergedGraph {
       if (parts.length < 2) continue;
       const repo = parts[0];
       const filePath = parts[1];
+      const lineNoStr = parts[2];
       if (!repo || !filePath) continue;
       const locKey = `${repo}:${filePath}`;
-      const cronEntities = cronByLoc.get(locKey) ?? [];
-      for (const cronNode of cronEntities) {
+      const refLineNo = lineNoStr ? Number(lineNoStr) : NaN;
+
+      const matched: IngestorNode[] = [];
+      if (Number.isFinite(refLineNo)) {
+        // Precise match: cron whose own decorator line is within ±NEAR_LINE_RANGE of the ref line.
+        for (let delta = 0; delta <= NEAR_LINE_RANGE; delta++) {
+          const exact = cronByLocLine.get(`${locKey}:${refLineNo}`);
+          if (exact) { matched.push(exact); break; }
+          const above = cronByLocLine.get(`${locKey}:${refLineNo - delta}`);
+          if (above) { matched.push(above); break; }
+          const below = cronByLocLine.get(`${locKey}:${refLineNo + delta}`);
+          if (below) { matched.push(below); break; }
+        }
+      } else {
+        // No lineNo in the doc reference. Be conservative: only attach when the
+        // file has at most 2 cron handlers — otherwise we'd blast a god-file
+        // (e.g. customtask.service.ts has 157 handlers; one doc reference must
+        // not authoritatively claim all of them for one domain).
+        const candidates = cronByLoc.get(locKey) ?? [];
+        if (candidates.length <= 2) matched.push(...candidates);
+      }
+
+      for (const cronNode of matched) {
         edges.push({
           sourceType: 'cron' as NodeKind, sourceKey: cronNode.key,
           targetType: 'domain' as NodeKind, targetKey: domainKey,
@@ -218,6 +250,65 @@ export function runOrchestrator(outputs: IngestorOutput[]): MergedGraph {
         });
       }
     }
+  }
+
+  // Post-pass: rescue api/route/redis nodes that the path-prefix heuristic missed
+  //   because the leading `src/modules/{x}/` segment is a NestJS module name
+  //   (admin / launchpool / customtask) rather than a knowledge-base domain.
+  //   Strategy: scan the filePath for any known knowledge domain key as a path
+  //   segment and emit a heuristic BELONGS_TO at confidence 0.5 (overrides the
+  //   broken 0.6 prefix edge that resolves to a non-existent domain).
+  const knownDomains = new Set<string>();
+  const knownDomainLeaves = new Set<string>();
+  for (const n of nodeMap.values()) {
+    if (n.type !== 'domain') continue;
+    knownDomains.add(n.key);
+    const last = n.key.split('/').pop();
+    if (last) knownDomainLeaves.add(last);
+  }
+  function scanPathForDomain(filePath: string): string | null {
+    // Tokens to scan: each path segment, plus the filename stem split on '.' / '-' / '_'.
+    // E.g. 'src/modules/admin/moolah.admin.controller.ts' yields tokens
+    //   src, modules, admin, moolah, admin, controller, ts (filename split)
+    // so we hit 'moolah' even when the directory says 'admin'.
+    const tokens: string[] = [];
+    const segs = filePath.split('/').filter(Boolean);
+    for (const s of segs) {
+      tokens.push(s);
+      const dash = s.replace(/([a-z0-9])([A-Z])/g, '$1-$2').toLowerCase();
+      if (dash !== s) tokens.push(dash);
+    }
+    const last = segs[segs.length - 1] ?? '';
+    if (last) {
+      const stem = last.replace(/\.(?:ts|tsx|js|jsx|sol|py|sql|md)$/, '');
+      for (const t of stem.split(/[._-]+/).filter(Boolean)) {
+        tokens.push(t);
+        const dash = t.replace(/([a-z0-9])([A-Z])/g, '$1-$2').toLowerCase();
+        if (dash !== t) tokens.push(dash);
+      }
+    }
+    for (const t of tokens) {
+      if (knownDomainLeaves.has(t)) return t;
+    }
+    return null;
+  }
+  for (const n of nodeMap.values()) {
+    if (n.type !== 'api' && n.type !== 'route' && n.type !== 'redis' && n.type !== 'entity' && n.type !== 'cron') continue;
+    const data = n.data as { filePath?: string; sourceFile?: string };
+    const fp = data.filePath ?? data.sourceFile ?? '';
+    const dom = scanPathForDomain(fp);
+    if (!dom) continue;
+    // find the canonical domain key (might be 'moolah/emission' or 'staking/launchpool')
+    let target = dom;
+    for (const k of knownDomains) {
+      if (k === dom || k.endsWith('/' + dom)) { target = k; break; }
+    }
+    edges.push({
+      sourceType: n.type, sourceKey: n.key,
+      targetType: 'domain', targetKey: target,
+      linkType: 'BELONGS_TO', confidence: 0.5,
+      meta: { strategy: 'path-domain-scan', segment: dom }
+    });
   }
 
   // 9. brokenRefs union.

@@ -104,7 +104,10 @@ interface ApiRedisRow extends RowDataPacket {
 export async function buildFlow(domainId: number): Promise<FlowGraph> {
   const pool = getPool();
 
-  // Collect candidate nodes for this domain.
+  // Collect candidate nodes: anything that EITHER belongs to this domain OR is
+  // reachable through a junction from a node that does. This widens the chart
+  // beyond strict same-domain matching, which caused empty graphs when the
+  // ingestor's domain heuristic didn't match a knowledge-base domain.
   const [crons] = await pool.query<DomainCronRow[]>(
     `SELECT id, name, confidence, description FROM panorama_cron_job WHERE domain_id = ?`,
     [domainId]
@@ -125,6 +128,36 @@ export async function buildFlow(domainId: number): Promise<FlowGraph> {
     `SELECT id, key_pattern AS keyPattern FROM panorama_redis_key WHERE domain_id = ?`,
     [domainId]
   );
+
+  // Pull in adjacent entities reachable from this domain's apis via api_entity_op,
+  // even when the entity itself has a different (or NULL) domain_id.
+  const [adjacentEntities] = apis.length === 0
+    ? [[] as DomainEntityRow[]]
+    : await pool.query<DomainEntityRow[]>(
+        `SELECT DISTINCT e.id, e.table_name AS tableName
+         FROM panorama_api_entity_op j
+         JOIN panorama_entity e ON e.id = j.entity_id
+         WHERE j.api_id IN (?)`,
+        [apis.map(a => a.id)]
+      );
+  const entityById = new Map<number, DomainEntityRow>();
+  for (const e of entities) entityById.set(Number(e.id), e);
+  for (const e of adjacentEntities) if (!entityById.has(Number(e.id))) entityById.set(Number(e.id), e);
+
+  // Same trick for adjacent apis pulled in by cron→redis or api→entity edges
+  // when the api's own domain_id is NULL but it's reached via a doc REFERENCES path.
+  const [adjacentApisFromEntities] = entities.length === 0
+    ? [[] as DomainApiRow[]]
+    : await pool.query<DomainApiRow[]>(
+        `SELECT DISTINCT a.id, a.http_method AS httpMethod, a.path
+         FROM panorama_api_entity_op j
+         JOIN panorama_api_endpoint a ON a.id = j.api_id
+         WHERE j.entity_id IN (?)`,
+        [entities.map(e => Number(e.id))]
+      );
+  const apiById = new Map<number, DomainApiRow>();
+  for (const a of apis) apiById.set(Number(a.id), a);
+  for (const a of adjacentApisFromEntities) if (!apiById.has(Number(a.id))) apiById.set(Number(a.id), a);
 
   // Contracts: those reachable through this domain's crons + apis (junctions empty in Phase 2).
   const [contracts] = await pool.query<DomainContractRow[]>(
@@ -165,13 +198,13 @@ export async function buildFlow(domainId: number): Promise<FlowGraph> {
   };
 
   for (const r of routes) push('ui', r.id, `${r.appName}: ${r.path}`, null, 1.0);
-  for (const a of apis) push('api', a.id, `${a.httpMethod} ${a.path}`, null, 1.0);
+  for (const a of apiById.values()) push('api', Number(a.id), `${a.httpMethod} ${a.path}`, null, 1.0);
   for (const c of crons) {
     const conf = typeof c.confidence === 'string' ? Number(c.confidence) : c.confidence;
     push('cron', c.id, c.name, c.description, conf);
   }
   for (const c of contracts) push('contract', Number(c.id), c.name, c.address, 1.0);
-  for (const e of entities) push('db', e.id, e.tableName, null, 1.0);
+  for (const e of entityById.values()) push('db', Number(e.id), e.tableName, null, 1.0);
   for (const rk of redisKeys) push('redis', rk.id, rk.keyPattern, null, 1.0);
 
   // Collect edges from junction tables, filtered to this domain's nodes.
@@ -213,11 +246,11 @@ export async function buildFlow(domainId: number): Promise<FlowGraph> {
   }
 
   // api → cron (callCronApi)
-  if (apis.length > 0) {
+  if (apiById.size > 0) {
     const [rows] = await pool.query<ApiCronRow[]>(
       `SELECT j.api_id AS apiId, j.cron_id AS cronId, j.call_path AS callPath
        FROM panorama_api_cron_call j WHERE j.api_id IN (?)`,
-      [apis.map((a) => a.id)]
+      [[...apiById.keys()]]
     );
     for (const r of rows) {
       addEdge('api', Number(r.apiId), 'cron', Number(r.cronId), r.callPath, 0.9);
@@ -225,11 +258,11 @@ export async function buildFlow(domainId: number): Promise<FlowGraph> {
   }
 
   // api → entity
-  if (apis.length > 0) {
+  if (apiById.size > 0) {
     const [rows] = await pool.query<ApiEntityRow[]>(
       `SELECT j.api_id AS apiId, j.entity_id AS entityId, j.op_type AS opType
        FROM panorama_api_entity_op j WHERE j.api_id IN (?)`,
-      [apis.map((a) => a.id)]
+      [[...apiById.keys()]]
     );
     for (const r of rows) {
       addEdge('api', Number(r.apiId), 'db', Number(r.entityId), r.opType, 0.8);
@@ -259,11 +292,11 @@ export async function buildFlow(domainId: number): Promise<FlowGraph> {
       addEdge('cron', Number(r.cronId), 'redis', Number(r.redisId), r.opType, 0.9);
     }
   }
-  if (apis.length > 0) {
+  if (apiById.size > 0) {
     const [rows] = await pool.query<ApiRedisRow[]>(
       `SELECT j.api_id AS apiId, j.redis_id AS redisId, j.op_type AS opType
        FROM panorama_api_redis_op j WHERE j.api_id IN (?)`,
-      [apis.map((a) => a.id)]
+      [[...apiById.keys()]]
     );
     for (const r of rows) {
       addEdge('api', Number(r.apiId), 'redis', Number(r.redisId), r.opType, 0.9);

@@ -198,21 +198,27 @@ async function populateStagingTables(pool: Pool, merged: MergedGraph) {
     codeRefIdByKey.set(cr.key, res.insertId);
   }
 
+  /** Pick highest-confidence BELONGS_TO edge whose target actually resolves to a known domain.
+   *  Without this, the api ingestor's NestJS-module-name heuristic (`admin`/`launchpool`) at
+   *  confidence 0.6 would beat the orchestrator's path-domain-scan rescue at 0.5, leaving
+   *  domain_id NULL because `admin` isn't a knowledge-base domain. */
+  function resolveBelongsTo(srcType: string, srcKey: string): { winner: import('./types.js').IngestorEdge | null; domainId: number | null } {
+    const candidates = merged.edges
+      .filter(e => e.sourceType === srcType && e.sourceKey === srcKey && e.linkType === 'BELONGS_TO')
+      .sort((a, b) => b.confidence - a.confidence);
+    for (const c of candidates) {
+      const id = domainIdByKey.get(c.targetKey);
+      if (typeof id === 'number') return { winner: c, domainId: id };
+    }
+    return { winner: candidates[0] ?? null, domainId: null };
+  }
+
   // Step 6: cron jobs (resolve domain_id via authoritative BELONGS_TO; fall back to heuristic).
   const crons = merged.nodes.filter(n => n.type === 'cron');
   const cronIdByKey = new Map<string, number>();
   for (const c of crons) {
     const data = c.data as unknown as CronData;
-    const auth = merged.edges.find(
-      e => e.sourceType === 'cron' && e.sourceKey === c.key
-        && e.linkType === 'BELONGS_TO' && e.confidence >= 1.0
-    );
-    const heuristic = merged.edges.find(
-      e => e.sourceType === 'cron' && e.sourceKey === c.key
-        && e.linkType === 'BELONGS_TO' && e.confidence < 1.0
-    );
-    const winner = auth ?? heuristic;
-    const domainId = winner ? domainIdByKey.get(winner.targetKey) ?? null : null;
+    const { winner, domainId } = resolveBelongsTo('cron', c.key);
 
     const [res] = await pool.query<ResultSetHeader>(
       `INSERT INTO panorama_cron_job_new
@@ -231,16 +237,7 @@ async function populateStagingTables(pool: Pool, merged: MergedGraph) {
   const apiIdByKey = new Map<string, number>();
   for (const a of apis) {
     const data = a.data as unknown as ApiData;
-    const auth = merged.edges.find(
-      e => e.sourceType === 'api' && e.sourceKey === a.key
-        && e.linkType === 'BELONGS_TO' && e.confidence >= 1.0
-    );
-    const heuristic = merged.edges.find(
-      e => e.sourceType === 'api' && e.sourceKey === a.key
-        && e.linkType === 'BELONGS_TO' && e.confidence < 1.0
-    );
-    const winner = auth ?? heuristic;
-    const domainId = winner ? domainIdByKey.get(winner.targetKey) ?? null : null;
+    const { domainId } = resolveBelongsTo('api', a.key);
     const [res] = await pool.query<ResultSetHeader>(
       `INSERT INTO panorama_api_endpoint_new
         (domain_id, http_method, path, controller, repo, file_path, line_no, auth_required, description, confidence)
@@ -258,16 +255,7 @@ async function populateStagingTables(pool: Pool, merged: MergedGraph) {
   const entityIdByKey = new Map<string, number>();
   for (const ent of entities) {
     const data = ent.data as unknown as EntityData;
-    const auth = merged.edges.find(
-      e => e.sourceType === 'entity' && e.sourceKey === ent.key
-        && e.linkType === 'BELONGS_TO' && e.confidence >= 1.0
-    );
-    const heuristic = merged.edges.find(
-      e => e.sourceType === 'entity' && e.sourceKey === ent.key
-        && e.linkType === 'BELONGS_TO' && e.confidence < 1.0
-    );
-    const winner = auth ?? heuristic;
-    const domainId = winner ? domainIdByKey.get(winner.targetKey) ?? null : null;
+    const { domainId } = resolveBelongsTo('entity', ent.key);
     const [res] = await pool.query<ResultSetHeader>(
       `INSERT INTO panorama_entity_new
         (domain_id, table_name, repo, file_path, columns_json, description)
@@ -298,16 +286,7 @@ async function populateStagingTables(pool: Pool, merged: MergedGraph) {
   const routeIdByKey = new Map<string, number>();
   for (const r of routes) {
     const data = r.data as unknown as RouteData;
-    const auth = merged.edges.find(
-      e => e.sourceType === 'route' && e.sourceKey === r.key
-        && e.linkType === 'BELONGS_TO' && e.confidence >= 1.0
-    );
-    const heuristic = merged.edges.find(
-      e => e.sourceType === 'route' && e.sourceKey === r.key
-        && e.linkType === 'BELONGS_TO' && e.confidence < 1.0
-    );
-    const winner = auth ?? heuristic;
-    const domainId = winner ? domainIdByKey.get(winner.targetKey) ?? null : null;
+    const { domainId } = resolveBelongsTo('route', r.key);
     const [res] = await pool.query<ResultSetHeader>(
       `INSERT INTO panorama_frontend_route_new
         (domain_id, app_name, path, component, repo, file_path, is_lazy)
@@ -323,16 +302,7 @@ async function populateStagingTables(pool: Pool, merged: MergedGraph) {
   const redisIdByKey = new Map<string, number>();
   for (const rk of redisKeys) {
     const data = rk.data as unknown as RedisData;
-    const auth = merged.edges.find(
-      e => e.sourceType === 'redis' && e.sourceKey === rk.key
-        && e.linkType === 'BELONGS_TO' && e.confidence >= 1.0
-    );
-    const heuristic = merged.edges.find(
-      e => e.sourceType === 'redis' && e.sourceKey === rk.key
-        && e.linkType === 'BELONGS_TO' && e.confidence < 1.0
-    );
-    const winner = auth ?? heuristic;
-    const domainId = winner ? domainIdByKey.get(winner.targetKey) ?? null : null;
+    const { domainId } = resolveBelongsTo('redis', rk.key);
     const [res] = await pool.query<ResultSetHeader>(
       `INSERT INTO panorama_redis_key_new
         (domain_id, key_pattern, redis_type, ttl_seconds, description, source_repo, source_file, source_line, confidence)
